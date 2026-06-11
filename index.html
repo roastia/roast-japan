@@ -49,6 +49,9 @@ nav a:hover{color:var(--gold);}
 .filter-select{background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:11px;padding:9px 28px 9px 12px;border-radius:4px;outline:none;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238a7045'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center;}
 .result-count{font-family:var(--mono);font-size:11px;color:var(--text-dim);white-space:nowrap;}
 .result-count strong{color:var(--gold);}
+.cafe-radio{display:flex;gap:14px;align-items:center;}
+.radio-label{display:flex;align-items:center;gap:4px;font-family:var(--sans);font-size:12px;color:var(--text);cursor:pointer;white-space:nowrap;}
+.radio-label input[type="radio"]{accent-color:var(--gold);width:13px;height:13px;cursor:pointer;}
 
 /* 位置情報バー */
 .location-bar{max-width:1100px;margin:.5rem auto 0;display:grid;grid-template-columns:auto 1fr auto;gap:6px;align-items:center;}
@@ -272,10 +275,9 @@ footer a:hover{color:var(--gold);}
   <h1>全日本自家焙煎珈琲店<br><em>データベース</em></h1>
   <p class="hero-sub">日本全国の自家焙煎珈琲店を、ひとつの地図に。<br>現在地・住所から徒歩圏内のロースターを探せる、<br>日本最大級の自家焙煎珈琲店データベース。</p>
   <div class="hero-stats">
-    <div><span class="stat-num" id="stat-total">—</span><span class="stat-label">収録店舗数</span></div>
+    <div><span class="stat-num" id="stat-total">—</span><span class="stat-label">掲載店舗数</span></div>
     <div><span class="stat-num">47</span><span class="stat-label">都道府県</span></div>
-    <div><span class="stat-num" id="stat-specialty">—</span><span class="stat-label">スペシャルティ系</span></div>
-    <div><span class="stat-num" id="stat-online">—</span><span class="stat-label">通販あり</span></div>
+
   </div>
 </section>
 
@@ -288,12 +290,11 @@ footer a:hover{color:var(--gold);}
     <select class="filter-select" id="pref-filter" onchange="filterShops()">
       <option value="">全都道府県</option>
     </select>
-    <select class="filter-select" id="style-filter" onchange="filterShops()">
-      <option value="">すべてのスタイル</option>
-      <option value="cafe">座席あり（カフェ）</option>
-      <option value="online">豆の販売のみ</option>
-
-    </select>
+    <div class="cafe-radio">
+      <label class="radio-label"><input type="radio" name="cafe" value="" checked onchange="setCafeFilter('')"> すべて</label>
+      <label class="radio-label"><input type="radio" name="cafe" value="cafe" onchange="setCafeFilter('cafe')"> 座席あり</label>
+      <label class="radio-label"><input type="radio" name="cafe" value="nocafe" onchange="setCafeFilter('nocafe')"> 座席なし</label>
+    </div>
     <div class="result-count"><strong id="count-display">0</strong> 件表示中</div>
   </div>
 
@@ -477,8 +478,7 @@ async function loadShops() {
 
 function initUI() {
   document.getElementById('stat-total').textContent     = ALL_SHOPS.length.toLocaleString();
-  document.getElementById('stat-specialty').textContent = ALL_SHOPS.filter(s=>s.tags&&s.tags.includes('specialty')).length.toLocaleString();
-  document.getElementById('stat-online').textContent    = ALL_SHOPS.filter(s=>s.tags&&s.tags.includes('online')).length.toLocaleString();
+
   const prefs = [...new Set(ALL_SHOPS.map(s=>s.pref).filter(Boolean))].sort();
   const sel = document.getElementById('pref-filter');
   sel.innerHTML = '<option value="">全都道府県</option>';
@@ -577,7 +577,7 @@ function renderCards() {
 function filterShops() {
   const q     = document.getElementById('search-input').value.toLowerCase();
   const pref  = document.getElementById('pref-filter').value;
-  const style = document.getElementById('style-filter').value;
+  const style = window._cafeFilter===undefined ? '' : window._cafeFilter;
 
   filteredShops = ALL_SHOPS.filter(s => {
     const mQ = !q || s.name.toLowerCase().includes(q)
@@ -585,7 +585,9 @@ function filterShops() {
                   || (s.city||'').includes(q)
                   || (s.category||'').toLowerCase().includes(q);
     const mP = !pref  || s.pref === pref;
-    const mS = !style || (s.tags||[]).includes(style);
+    const mS = !style
+      || (style==='cafe'   && (s.tags||[]).includes('cafe'))
+      || (style==='nocafe' && !(s.tags||[]).includes('cafe'));
     // 徒歩フィルター
     const mW = !myLat || walkMinutes === 0 || (
       s.lat && s.lng &&
@@ -613,6 +615,12 @@ function filterShops() {
 }
 
 function loadMore() { displayedCount += 50; renderCards(); }
+
+function setCafeFilter(val) {
+  window._cafeFilter = val;
+  displayedCount = 50;
+  filterShops();
+}
 
 /* ── モーダル ── */
 function openModal(id) {
