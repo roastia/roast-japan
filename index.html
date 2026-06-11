@@ -101,7 +101,7 @@ nav a:hover{color:var(--gold);}
 #section-list{padding:0 0 4rem;}
 /* 行リスト形式 */
 .shop-grid{max-width:1100px;margin:0 auto;padding:1rem 2rem 0;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:6px;overflow:hidden;box-shadow:0 2px 16px rgba(120,80,30,.06);}
-.shop-card{background:var(--bg);border:none;cursor:pointer;transition:background .15s;text-align:left;display:flex;align-items:center;gap:0;border-bottom:1px solid var(--border);position:relative;min-height:44px;}
+.shop-card{background:var(--bg);border:none;cursor:pointer;transition:background .15s;text-align:left;display:flex;align-items:center;gap:0;border-bottom:1px solid var(--border);position:relative;min-height:48px;-webkit-tap-highlight-color:rgba(140,90,40,.1);}
 .shop-card:last-child{border-bottom:none;}
 .shop-card:hover{background:var(--bg2);}
 /* 行内カラム */
@@ -167,6 +167,92 @@ nav a:hover{color:var(--gold);}
 footer{border-top:1px solid var(--border);padding:2rem;text-align:center;font-family:var(--sans);font-size:11px;color:var(--text-dim);letter-spacing:.05em;}
 footer a{color:var(--gold-dim);text-decoration:none;}
 footer a:hover{color:var(--gold);}
+
+/* ═══════════════════════════
+   スマホ対応 (max-width: 640px)
+═══════════════════════════ */
+@media (max-width: 640px) {
+  /* ヘッダー */
+  header { padding: 0 1rem; height: 50px; }
+  .logo { font-size: 11px; letter-spacing: .15em; }
+  nav { gap: 1rem; }
+  nav a { font-size: 10px; letter-spacing: .08em; }
+
+  /* ヒーロー */
+  .hero { padding: 3.5rem 1.2rem 3rem; }
+  .hero h1 { font-size: 2.2rem; }
+  .hero-sub { font-size: .9rem; }
+  .hero-stats { gap: 1.2rem; flex-wrap: wrap; justify-content: center; }
+  .hero-stats > div { min-width: 80px; text-align: center; }
+  .stat-num { font-size: 1.6rem; }
+
+  /* 検索バー */
+  .search-section { padding: 1rem 1rem .8rem; top: 50px; }
+  .search-inner { gap: 8px; }
+  .search-box input { font-size: 14px; padding: 9px 12px 9px 34px; }
+  .filter-select { font-size: 11px; padding: 9px 24px 9px 10px; }
+  .result-count { width: 100%; text-align: right; font-size: 10px; }
+
+  /* 位置情報バー */
+  .location-bar { gap: 6px; margin-top: .6rem; }
+  .btn-locate { font-size: 10px; padding: 6px 12px; }
+  .addr-search { min-width: 0; width: 100%; }
+  .addr-input { font-size: 13px; padding: 7px 10px; }
+  .btn-addr { font-size: 10px; padding: 6px 10px; }
+  .walk-filters { gap: 4px; flex-wrap: wrap; }
+  .btn-walk { font-size: 10px; padding: 4px 9px; }
+  .location-status { font-size: 9px; }
+
+  /* セクションヘッダー */
+  .section-header { padding: 1.2rem 1rem .6rem; }
+
+  /* 地図 */
+  #map { height: 320px; }
+
+  /* 店舗一覧 */
+  .shop-grid { margin: 0 1rem; padding: .5rem 1rem 0; }
+  .col-num { flex: 0 0 28px; font-size: 9px; padding-left: 4px; }
+  .col-name { padding: 10px 6px 10px 2px; }
+  .card-name { font-size: .85rem; }
+  .card-pref { font-size: 8px; }
+  .col-tags { padding: 0 4px; gap: 3px; }
+  .tag { font-size: 7px; padding: 2px 5px; }
+  .col-walk { flex: 0 0 52px; font-size: 9px; padding: 0 6px 0 2px; }
+  .shop-grid-header { padding: 6px 0; }
+
+  /* さらに読み込む */
+  .load-more-wrap { padding: 1.5rem; }
+  .btn-load-more { font-size: 10px; padding: 10px 24px; }
+
+  /* モーダル */
+  .modal-overlay { padding: .5rem; align-items: flex-end; }
+  .modal {
+    max-height: 92vh;
+    border-radius: 12px 12px 0 0;
+    width: 100%;
+    max-width: 100%;
+  }
+  .modal-body { padding: 1.2rem 1.2rem 1.5rem; }
+  .modal-name { font-size: 1.4rem; }
+  .modal-info { grid-template-columns: 1fr; gap: 1rem; }
+  .modal-info .info-block[style*="grid-column"] { grid-column: 1; }
+  .modal-actions { gap: 8px; }
+  .btn-action { font-size: 10px; padding: 8px 14px; }
+  .modal-gallery img { height: 110px; }
+
+  /* フッター */
+  footer { padding: 1.5rem 1rem; font-size: 10px; }
+}
+
+/* タブレット対応 (641px〜900px) */
+@media (min-width: 641px) and (max-width: 900px) {
+  .hero h1 { font-size: 3.2rem; }
+  .hero-stats { gap: 2rem; }
+  #map { height: 400px; }
+  .shop-grid { margin: 0 1.2rem; }
+  .modal-info { grid-template-columns: 1fr; }
+  .addr-search { min-width: 180px; }
+}
 </style>
 </head>
 <body>
