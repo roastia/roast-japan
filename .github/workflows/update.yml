@@ -4,7 +4,7 @@ on:
   # 毎週月曜日 AM3:00（JST）に自動実行
   schedule:
     - cron: '0 18 * * 0'   # UTC 18:00 = JST 03:00
-  # 手動実行ボタン（GitHub画面から手動でも実行できる）
+  # 手動実行ボタン
   workflow_dispatch:
     inputs:
       prefecture:
@@ -15,32 +15,26 @@ on:
 jobs:
   scrape-and-deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 360   # 最大6時間
+    timeout-minutes: 360
 
     steps:
-      # ① リポジトリをチェックアウト
       - name: リポジトリ取得
         uses: actions/checkout@v4
 
-      # ② Python セットアップ
       - name: Python 3.11 セットアップ
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
 
-      # ③ 依存ライブラリのインストール
       - name: ライブラリインストール
         run: |
-          pip install playwright psycopg2-binary python-dotenv tqdm requests
+          pip install playwright python-dotenv tqdm requests
           python -m playwright install chromium
           python -m playwright install-deps chromium
 
-      # ④ output フォルダを作成
       - name: フォルダ準備
         run: mkdir -p output
 
-      # ⑤ スクレイピング実行
       - name: Google Maps スクレイピング
         run: |
           if [ -n "${{ github.event.inputs.prefecture }}" ]; then
@@ -51,25 +45,23 @@ jobs:
         env:
           PYTHONUNBUFFERED: '1'
 
-      # ⑥ shops.json に変換
       - name: shops.json 変換
         run: |
           if ls output/shops_*.json 1> /dev/null 2>&1; then
             python convert_to_web.py output/shops_*.json --out shops.json
             echo "変換完了"
-            wc -l shops.json
+            python -c "import json; data=json.load(open('shops.json')); print(f'{len(data)}件')"
           else
             echo "スクレイピングデータなし。既存の shops.json を維持します"
           fi
 
-      # ⑦ 変更をコミット＆プッシュ（shops.json が更新された場合のみ）
       - name: shops.json をコミット
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add shops.json
           if git diff --staged --quiet; then
-            echo "shops.json に変更なし。スキップ"
+            echo "変更なし。スキップ"
           else
             SHOP_COUNT=$(python -c "import json; print(len(json.load(open('shops.json'))))")
             git commit -m "🔄 データ自動更新: ${SHOP_COUNT}件 ($(date +'%Y-%m-%d'))"
