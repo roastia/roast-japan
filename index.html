@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ROAST JAPAN — 全国自家焙煎珈琲店データベース</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Josefin+Sans:wght@300;400;600&family=DM+Mono:wght@300;400&display=swap');
+:root {
+  --bg:#faf7f2; --bg2:#f3ede3; --bg3:#ede4d6; --surface:#e8dece;
+  --border:rgba(160,120,70,0.15); --border2:rgba(160,120,70,0.30);
+  --gold:#8b5e2a; --gold-dim:#b07840; --cream:#3d2b1a; --cream-dim:#7a5c3a;
+  --text:#3d2b1a; --text-dim:#9a7a58; --accent:#c06a1a;
+  --mono:'DM Mono',monospace; --serif:'Playfair Display',Georgia,serif;
+  --sans:'Josefin Sans',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text);font-family:var(--serif);font-size:16px;line-height:1.7;min-height:100vh;}
+
+/* HEADER */
+header{position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:56px;box-shadow:0 1px 12px rgba(160,120,70,.08);}
+.logo{font-size:13px;letter-spacing:.25em;font-family:var(--sans);font-weight:600;color:var(--gold);text-transform:uppercase;}
+.logo span{color:var(--text-dim);margin:0 .5em;}
+nav{display:flex;gap:2rem;}
+nav a{font-family:var(--sans);font-size:11px;letter-spacing:.15em;color:var(--text-dim);text-decoration:none;text-transform:uppercase;transition:color .2s;font-weight:400;}
+nav a:hover{color:var(--gold);}
+
+/* HERO */
+.hero{padding:7rem 2rem 5rem;max-width:900px;margin:0 auto;text-align:center;border-bottom:1px solid var(--border);}
+.hero-eyebrow{font-family:var(--sans);font-size:11px;letter-spacing:.3em;color:var(--gold-dim);text-transform:uppercase;margin-bottom:1.5rem;font-weight:300;}
+.hero h1{font-size:clamp(2.8rem,6vw,5.5rem);font-weight:700;line-height:1.1;color:var(--cream);margin-bottom:1.5rem;}
+.hero h1 em{font-style:italic;color:var(--accent);}
+.hero-sub{font-family:var(--sans);font-size:1rem;color:var(--cream-dim);max-width:520px;margin:0 auto 2.5rem;font-weight:300;letter-spacing:.02em;}
+.hero-stats{display:flex;justify-content:center;gap:3rem;margin-top:3rem;padding-top:2.5rem;border-top:1px solid var(--border2);}
+.stat-num{font-family:var(--serif);font-size:2.2rem;font-weight:700;color:var(--gold);display:block;line-height:1;margin-bottom:.3rem;}
+.stat-label{font-family:var(--sans);font-size:10px;letter-spacing:.2em;color:var(--text-dim);text-transform:uppercase;}
+
+/* SEARCH */
+.search-section{padding:1.4rem 2rem;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:56px;z-index:90;box-shadow:0 2px 12px rgba(160,120,70,.06);}
+.search-inner{max-width:1100px;margin:0 auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.search-box{flex:1;min-width:200px;position:relative;}
+.search-box input{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:var(--serif);font-size:15px;padding:9px 16px 9px 38px;border-radius:4px;outline:none;transition:border-color .2s;}
+.search-box input::placeholder{color:var(--text-dim);}
+.search-box input:focus{border-color:var(--gold-dim);}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:14px;pointer-events:none;}
+.filter-select{background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:11px;padding:9px 28px 9px 12px;border-radius:4px;outline:none;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238a7045'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center;}
+.result-count{font-family:var(--mono);font-size:11px;color:var(--text-dim);white-space:nowrap;}
+.result-count strong{color:var(--gold);}
+
+/* 位置情報バー */
+.location-bar{max-width:1100px;margin:.8rem auto 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.btn-locate{background:transparent;border:1px solid var(--border2);color:var(--gold-dim);font-family:var(--mono);font-size:11px;letter-spacing:.12em;padding:7px 14px;border-radius:3px;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.btn-locate:hover{border-color:var(--gold);color:var(--gold);}
+.btn-locate.active{background:var(--gold-dim);color:var(--bg);border-color:var(--gold-dim);}
+.loc-sep{color:var(--text-dim);font-family:var(--mono);font-size:11px;padding:0 2px;}
+.addr-search{display:flex;gap:6px;align-items:center;flex:1;min-width:220px;}
+.addr-input{flex:1;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:var(--serif);font-size:13px;padding:7px 12px;border-radius:4px;outline:none;transition:border-color .2s;}
+.addr-input::placeholder{color:var(--text-dim);}
+.addr-input:focus{border-color:var(--gold-dim);}
+.btn-addr{background:transparent;border:1px solid var(--border2);color:var(--gold-dim);font-family:var(--mono);font-size:10px;letter-spacing:.1em;padding:7px 14px;border-radius:3px;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.btn-addr:hover{border-color:var(--gold);color:var(--gold);}
+.walk-filters{display:flex;gap:5px;align-items:center;opacity:0;pointer-events:none;transition:opacity .3s;}
+.walk-filters.visible{opacity:1;pointer-events:all;}
+.walk-label{font-family:var(--mono);font-size:10px;color:var(--text-dim);letter-spacing:.1em;}
+.btn-walk{background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--mono);font-size:10px;padding:5px 11px;border-radius:20px;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.btn-walk:hover{border-color:var(--gold-dim);color:var(--gold-dim);}
+.btn-walk.active{background:var(--gold-dim);color:var(--bg);border-color:var(--gold-dim);}
+.location-status{font-family:var(--mono);font-size:10px;color:var(--text-dim);letter-spacing:.05em;}
+.location-status.ok{color:#50a078;}
+.location-status.err{color:#c06040;}
+
+/* MAP */
+#section-map{border-bottom:1px solid var(--border);}
+.section-header{max-width:1100px;margin:0 auto;padding:2rem 2rem 1rem;display:flex;align-items:baseline;gap:1rem;}
+.section-title{font-family:var(--serif);font-size:1.2rem;font-weight:600;letter-spacing:.05em;color:var(--cream);}
+.section-tag{font-family:var(--sans);font-size:10px;letter-spacing:.15em;color:var(--gold-dim);text-transform:uppercase;font-weight:600;}
+#map{height:500px;width:100%;background:var(--bg3);position:relative;z-index:0;isolation:isolate;}
+.leaflet-container{background:#ede4d6 !important;font-family:var(--serif);}
+.leaflet-tile{filter:brightness(1.05) saturate(0.75) sepia(0.15);}
+/* 自分のピン */
+.my-marker{width:16px;height:16px;background:#4a9eff;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 4px rgba(74,158,255,.25);}
+/* 徒歩圏サークル（Leaflet Circle デフォルト上書き） */
+/* 店舗ピン */
+.custom-marker{width:14px;height:14px;background:#c05c10;border-radius:50%;border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35);cursor:pointer;transition:transform .15s;}
+.custom-marker:hover{transform:scale(1.5);box-shadow:0 3px 10px rgba(0,0,0,.4);}
+.custom-marker.near{background:#e02020;border-color:#fff;transform:scale(1.4);box-shadow:0 3px 10px rgba(220,30,30,.5);}
+.leaflet-popup-content-wrapper{background:var(--bg) !important;border:1px solid var(--border2) !important;border-radius:4px !important;box-shadow:0 4px 20px rgba(120,80,30,.12) !important;color:var(--text) !important;}
+.leaflet-popup-tip{background:var(--bg) !important;}
+.leaflet-popup-content{font-family:var(--serif);font-size:14px;}
+.popup-name{font-size:15px;color:var(--cream);margin-bottom:4px;}
+.popup-pref{font-family:var(--mono);font-size:10px;color:var(--gold-dim);letter-spacing:.1em;}
+.popup-rating{color:var(--gold);font-size:12px;margin-top:6px;}
+.popup-walk{font-family:var(--mono);font-size:10px;color:#ff9966;margin-top:4px;}
+.popup-link{display:block;margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--gold-dim);text-decoration:none;letter-spacing:.1em;cursor:pointer;}
+.popup-link:hover{color:var(--gold);}
+
+/* SHOP GRID */
+#section-list{padding:0 0 4rem;}
+/* 行リスト形式 */
+.shop-grid{max-width:1100px;margin:0 auto;padding:1rem 2rem 0;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:6px;overflow:hidden;box-shadow:0 2px 16px rgba(120,80,30,.06);}
+.shop-card{background:var(--bg);border:none;cursor:pointer;transition:background .15s;text-align:left;display:flex;align-items:center;gap:0;border-bottom:1px solid var(--border);position:relative;min-height:44px;}
+.shop-card:last-child{border-bottom:none;}
+.shop-card:hover{background:var(--bg2);}
+/* 行内カラム */
+.col-num{flex:0 0 40px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--text-dim);padding:0 0 0 12px;user-select:none;}
+.col-name{flex:1 1 0;padding:11px 10px 11px 4px;min-width:0;}
+.card-name{font-family:var(--serif);font-size:.95rem;font-weight:600;color:var(--cream);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.card-pref{font-family:var(--mono);font-size:9px;color:var(--text-dim);margin-top:1px;}
+.col-tags{flex:0 0 auto;display:flex;gap:4px;flex-wrap:nowrap;padding:0 8px;align-items:center;}
+.tag{font-family:var(--mono);font-size:8px;letter-spacing:.08em;padding:2px 6px;border-radius:2px;text-transform:uppercase;white-space:nowrap;}
+.tag-specialty{background:rgba(200,169,110,.12);color:var(--gold-dim);border:1px solid rgba(200,169,110,.2);}
+.tag-online{background:rgba(212,133,58,.10);color:#a06030;border:1px solid rgba(212,133,58,.2);}
+.tag-scaj{background:rgba(80,160,120,.10);color:#50a078;border:1px solid rgba(80,160,120,.2);}
+.tag-cafe{background:rgba(150,120,200,.10);color:#9070c0;border:1px solid rgba(150,120,200,.2);}
+.col-walk{flex:0 0 72px;text-align:right;font-family:var(--mono);font-size:10px;color:#ff9966;padding:0 14px 0 4px;white-space:nowrap;}
+.col-rating{display:none;}
+/* 列ヘッダー */
+.shop-grid-header{display:flex;align-items:center;gap:0;padding:8px 0;border-bottom:1px solid var(--border2);background:var(--bg2);}
+.shop-grid-header .col-num,.shop-grid-header .col-name,.shop-grid-header .col-tags,.shop-grid-header .col-walk,.shop-grid-header .col-rating{font-family:var(--sans);font-size:9px;letter-spacing:.15em;color:var(--gold-dim);text-transform:uppercase;font-weight:600;}
+.shop-grid-header .col-name{padding-left:4px;}
+
+/* LOAD MORE */
+.load-more-wrap{text-align:center;padding:2.5rem;}
+.btn-load-more{background:transparent;border:1px solid var(--border2);color:var(--gold);font-family:var(--sans);font-size:11px;letter-spacing:.15em;text-transform:uppercase;padding:12px 32px;cursor:pointer;border-radius:4px;transition:all .2s;font-weight:600;}
+.btn-load-more:hover{background:var(--bg2);border-color:var(--gold);color:var(--gold);}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(80,50,20,.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:1rem;opacity:0;pointer-events:none;transition:opacity .25s;}
+.modal-overlay.open{opacity:1;pointer-events:all;}
+.modal{background:var(--bg);border:1px solid var(--border2);border-radius:8px;max-width:680px;width:100%;max-height:90vh;overflow-y:auto;position:relative;box-shadow:0 20px 60px rgba(100,70,30,.15);}
+.modal-close{position:sticky;top:0;float:right;background:var(--bg);border:none;color:var(--text-dim);font-size:20px;cursor:pointer;padding:1rem 1.2rem;line-height:1;z-index:10;}
+.modal-close:hover{color:var(--gold);}
+.modal-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:2px;}
+.modal-gallery img{width:100%;height:140px;object-fit:cover;display:block;}
+.modal-gallery-empty{display:none;}
+.modal-body{padding:1.6rem 2rem 2rem;}
+.modal-pref{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--gold-dim);text-transform:uppercase;margin-bottom:.5rem;}
+.modal-name{font-size:1.8rem;font-weight:300;color:var(--cream);line-height:1.2;margin-bottom:.4rem;}
+.modal-category{font-family:var(--mono);font-size:11px;color:var(--text-dim);margin-bottom:1.2rem;}
+.modal-rating{display:flex;align-items:center;gap:8px;margin-bottom:1rem;}
+.modal-stars{color:var(--gold);font-size:16px;}
+.modal-rating-num{font-family:var(--mono);font-size:13px;color:var(--text-dim);}
+.modal-walk{font-family:var(--mono);font-size:11px;color:#ff9966;margin-bottom:1rem;padding:6px 12px;border:1px solid rgba(255,153,102,.25);border-radius:3px;display:inline-block;}
+.modal-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.5rem;}
+.modal-info{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem;}
+@media(max-width:500px){.modal-info{grid-template-columns:1fr;}}
+.info-label{font-family:var(--mono);font-size:9px;letter-spacing:.2em;color:var(--gold-dim);text-transform:uppercase;margin-bottom:.5rem;}
+.info-value{font-size:.9rem;color:var(--text);line-height:1.6;}
+.info-value a{color:var(--gold-dim);text-decoration:none;}
+.info-value a:hover{color:var(--gold);}
+.hours-table{width:100%;border-collapse:collapse;font-size:.85rem;}
+.hours-table td{padding:3px 0;color:var(--text);}
+.hours-table td:first-child{color:var(--text-dim);font-family:var(--mono);font-size:10px;width:60px;}
+.hours-table tr.today td{color:var(--gold);}
+.chip-list{display:flex;flex-wrap:wrap;gap:5px;}
+.chip{font-family:var(--mono);font-size:9px;color:var(--text-dim);background:var(--bg3);padding:3px 9px;border-radius:10px;letter-spacing:.05em;border:1px solid var(--border);}
+.modal-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid var(--border);}
+.btn-action{font-family:var(--mono);font-size:11px;letter-spacing:.15em;text-transform:uppercase;padding:9px 20px;border-radius:3px;text-decoration:none;transition:all .2s;cursor:pointer;border:none;display:inline-block;}
+.btn-primary{background:var(--gold-dim);color:var(--bg);}
+.btn-primary:hover{background:var(--gold);}
+.btn-secondary{background:transparent;color:var(--gold-dim);border:1px solid var(--border2);}
+.btn-secondary:hover{border-color:var(--gold);color:var(--gold);}
+
+footer{border-top:1px solid var(--border);padding:2rem;text-align:center;font-family:var(--sans);font-size:11px;color:var(--text-dim);letter-spacing:.05em;}
+footer a{color:var(--gold-dim);text-decoration:none;}
+footer a:hover{color:var(--gold);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Roast Japan <span>/</span> 全国自家焙煎珈琲店</div>
+  <nav>
+    <a href="#section-map">地図</a>
+    <a href="#section-list">一覧</a>
+    <a href="#about">このサイトについて</a>
+  </nav>
+</header>
+
+<section class="hero">
+  <p class="hero-eyebrow">Japan Specialty Coffee Database</p>
+  <h1>全国の<em>自家焙煎</em>珈琲店を<br>ひとつの地図に。</h1>
+  <p class="hero-sub">OpenStreetMap・Google Maps・SCAJの情報を統合した、日本最大級の自家焙煎珈琲店データベース。</p>
+  <div class="hero-stats">
+    <div><span class="stat-num" id="stat-total">—</span><span class="stat-label">収録店舗数</span></div>
+    <div><span class="stat-num">47</span><span class="stat-label">都道府県</span></div>
+    <div><span class="stat-num" id="stat-specialty">—</span><span class="stat-label">スペシャルティ系</span></div>
+    <div><span class="stat-num" id="stat-online">—</span><span class="stat-label">通販あり</span></div>
+  </div>
+</section>
+
+<section class="search-section">
+  <div class="search-inner">
+    <div class="search-box">
+      <span class="search-icon">⌕</span>
+      <input type="text" id="search-input" placeholder="店舗名・住所・キーワードで検索…" oninput="filterShops()">
+    </div>
+    <select class="filter-select" id="pref-filter" onchange="filterShops()">
+      <option value="">全都道府県</option>
+    </select>
+    <select class="filter-select" id="style-filter" onchange="filterShops()">
+      <option value="">すべてのスタイル</option>
+      <option value="specialty">スペシャルティ</option>
+      <option value="online">通販あり</option>
+      <option value="scaj">SCAJ会員</option>
+    </select>
+    <div class="result-count"><strong id="count-display">0</strong> 件表示中</div>
+  </div>
+
+  <!-- 位置情報バー -->
+  <div class="location-bar">
+    <button class="btn-locate" id="btn-locate" onclick="toggleLocate()">◎ 現在地</button>
+    <span class="loc-sep">or</span>
+    <div class="addr-search">
+      <input class="addr-input" id="addr-input" type="text" placeholder="住所・駅名・スポット名で検索… 例: 渋谷駅" onkeydown="if(event.key==='Enter')geocodeAddress()">
+      <button class="btn-addr" onclick="geocodeAddress()">この場所から探す</button>
+    </div>
+    <div class="walk-filters" id="walk-filters">
+      <span class="walk-label">徒歩</span>
+      <button class="btn-walk" data-min="5"  onclick="setWalkFilter(5)">5分</button>
+      <button class="btn-walk" data-min="10" onclick="setWalkFilter(10)">10分</button>
+      <button class="btn-walk" data-min="15" onclick="setWalkFilter(15)">15分</button>
+      <button class="btn-walk" data-min="30" onclick="setWalkFilter(30)">30分</button>
+      <button class="btn-walk active" data-min="0" onclick="setWalkFilter(0)">全表示</button>
+    </div>
+    <span class="location-status" id="location-status"></span>
+  </div>
+</section>
+
+<section id="section-map">
+  <div class="section-header">
+    <span class="section-tag">Map</span>
+    <span class="section-title">全国マップ</span>
+  </div>
+  <div id="map"></div>
+</section>
+
+<section id="section-list">
+  <div class="section-header">
+    <span class="section-tag">Database</span>
+    <span class="section-title">店舗一覧</span>
+  </div>
+  <div class="shop-grid" id="shop-grid"></div>
+  <div class="load-more-wrap">
+    <button class="btn-load-more" id="load-more-btn" onclick="loadMore()">さらに読み込む</button>
+  </div>
+</section>
+
+<footer id="about">
+  <p style="margin-bottom:.5rem">データソース: <a href="https://www.openstreetmap.org">OpenStreetMap</a> · <a href="https://scaj.org">SCAJ</a> · Google Maps</p>
+  <p>本データはスクレイピングにより収集されたものです。情報の正確性については各店舗へご確認ください。</p>
+</footer>
+
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal" id="modal-content">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div id="modal-inner"></div>
+  </div>
+</div>
+
+<script>
+const DATA_URL = 'shops.json';
+let ALL_SHOPS = [], filteredShops = [], displayedCount = 50;
+let map, markerGroup;
+
+/* ── 位置情報 ── */
+let myLat = null, myLng = null;
+let myMarker = null, walkCircle = null;
+let walkMinutes = 0;
+let locMode = null; // 'gps' | 'addr'
+
+const WALK_SPEED = 80;
+function walkToMeters(min) { return min * WALK_SPEED; }
+function distanceMeters(lat1,lng1,lat2,lng2) {
+  const R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLng=(lng2-lng1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function walkMinutesFromDist(m) { return Math.round(m/WALK_SPEED); }
+
+/* 基点リセット */
+function resetBase() {
+  myLat = myLng = null; locMode = null;
+  if (myMarker) { map.removeLayer(myMarker); myMarker=null; }
+  if (walkCircle) { map.removeLayer(walkCircle); walkCircle=null; }
+  document.getElementById('btn-locate').classList.remove('active');
+  document.getElementById('btn-locate').textContent = '◎ 現在地';
+  document.getElementById('walk-filters').classList.remove('visible');
+  document.getElementById('location-status').textContent = '';
+  document.getElementById('location-status').className = 'location-status';
+  walkMinutes = 0;
+  filterShops();
+}
+
+/* GPS現在地 */
+function toggleLocate() {
+  if (locMode==='gps') { resetBase(); return; }
+  if (!navigator.geolocation) { setStatus('位置情報に対応していません','err'); return; }
+  setStatus('位置情報を取得中…','');
+  document.getElementById('btn-locate').textContent = '取得中...';
+  navigator.geolocation.getCurrentPosition(
+    pos => { myLat=pos.coords.latitude; myLng=pos.coords.longitude; locMode='gps'; onLocated('現在地'); },
+    err => {
+      setStatus(err.code===1?'許可が必要です':'取得できませんでした','err');
+      document.getElementById('btn-locate').textContent='◎ 現在地';
+    },
+    { enableHighAccuracy:true, timeout:10000 }
+  );
+}
+
+/* 住所ジオコーディング（Nominatim / 無料） */
+async function geocodeAddress() {
+  const q = document.getElementById('addr-input').value.trim();
+  if (!q) { setStatus('住所を入力してください','err'); return; }
+  setStatus('検索中…','');
+  try {
+    const url = 'https://nominatim.openstreetmap.org/search?q='
+      + encodeURIComponent(q+' 日本')+'&format=json&limit=1&accept-language=ja';
+    const res = await fetch(url, { headers:{'User-Agent':'RoastJapan/1.0'} });
+    const data = await res.json();
+    if (!data.length) { setStatus('「'+q+'」が見つかりません','err'); return; }
+    myLat = parseFloat(data[0].lat);
+    myLng = parseFloat(data[0].lon);
+    const label = data[0].display_name.split(',')[0];
+    locMode = 'addr';
+    document.getElementById('btn-locate').classList.remove('active');
+    onLocated(label);
+  } catch(e) { setStatus('ネットワークエラー','err'); }
+}
+
+/* 基点セット後の共通処理 */
+function onLocated(label) {
+  if (myMarker) { map.removeLayer(myMarker); myMarker=null; }
+  const isGps = locMode==='gps';
+  const el = document.createElement('div');
+  el.className = 'my-marker';
+  if (!isGps) el.style.cssText='background:#d4853a;box-shadow:0 0 0 3px rgba(212,133,58,.35);';
+  const icon = L.divIcon({ html:el, className:'', iconSize:[16,16], iconAnchor:[8,8] });
+  myMarker = L.marker([myLat,myLng],{icon,zIndexOffset:1000})
+    .bindPopup('<div class="popup-name" style="color:'+(isGps?'#4a9eff':'#d4853a')+'">📍 '+label+'</div>')
+    .addTo(map);
+  map.setView([myLat,myLng],14);
+  if (isGps) {
+    document.getElementById('btn-locate').classList.add('active');
+    document.getElementById('btn-locate').textContent='◎ 現在地表示中';
+  }
+  document.getElementById('walk-filters').classList.add('visible');
+  setStatus('📍 '+label,'ok');
+  setWalkFilter(15);
+}
+
+function setWalkFilter(min) {
+  walkMinutes = min;
+  document.querySelectorAll('.btn-walk').forEach(b=>b.classList.toggle('active',parseInt(b.dataset.min)===min));
+  if (walkCircle) { map.removeLayer(walkCircle); walkCircle=null; }
+  if (myLat && min>0) {
+    walkCircle = L.circle([myLat,myLng],{
+      radius:walkToMeters(min), color:'#c8a96e', fillColor:'#c8a96e',
+      fillOpacity:.06, weight:1.5, dashArray:'4 4',
+    }).addTo(map);
+    map.fitBounds(walkCircle.getBounds(),{padding:[30,30]});
+  }
+  filterShops();
+}
+
+function setStatus(msg,type) {
+  const el=document.getElementById('location-status');
+  el.textContent=msg; el.className='location-status'+(type?' '+type:'');
+}
+
+/* ── データ読み込み ── */
+async function loadShops() {
+  document.getElementById('shop-grid').innerHTML =
+    '<div style="padding:3rem;text-align:center;color:var(--text-dim);font-family:var(--mono);font-size:12px;letter-spacing:.1em;grid-column:1/-1">LOADING...</div>';
+  try {
+    const res = await fetch(DATA_URL);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    ALL_SHOPS = await res.json();
+    if (!ALL_SHOPS.length) throw new Error('空');
+  } catch(e) {
+    console.warn('shops.json 読み込み失敗:', e.message);
+    ALL_SHOPS = FALLBACK;
+  }
+  filteredShops = [...ALL_SHOPS];
+  initUI();
+}
+
+function initUI() {
+  document.getElementById('stat-total').textContent     = ALL_SHOPS.length.toLocaleString();
+  document.getElementById('stat-specialty').textContent = ALL_SHOPS.filter(s=>s.tags&&s.tags.includes('specialty')).length.toLocaleString();
+  document.getElementById('stat-online').textContent    = ALL_SHOPS.filter(s=>s.tags&&s.tags.includes('online')).length.toLocaleString();
+  const prefs = [...new Set(ALL_SHOPS.map(s=>s.pref).filter(Boolean))].sort();
+  const sel = document.getElementById('pref-filter');
+  sel.innerHTML = '<option value="">全都道府県</option>';
+  prefs.forEach(p => { const o=document.createElement('option'); o.value=p; o.textContent=p; sel.appendChild(o); });
+  updateMarkers(ALL_SHOPS);
+  renderCards();
+}
+
+function init() { initMap(); loadShops(); }
+
+/* ── 地図 ── */
+function initMap() {
+  map = L.map('map', { center:[36.2,138.0], zoom:5, zoomControl:true, attributionControl:false });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:18 }).addTo(map);
+  markerGroup = L.layerGroup().addTo(map);
+}
+
+function updateMarkers(shops) {
+  markerGroup.clearLayers();
+  shops.forEach(shop => {
+    const dist = (myLat && shop.lat && shop.lng)
+      ? distanceMeters(myLat, myLng, shop.lat, shop.lng) : null;
+    const walkMin = dist ? walkMinutesFromDist(dist) : null;
+    const isNear = dist && walkMinutes > 0 && dist <= walkToMeters(walkMinutes);
+
+    const el = document.createElement('div');
+    el.className = 'custom-marker' + (isNear ? ' near' : '');
+    const icon = L.divIcon({ html:el, className:'', iconSize:[14,14], iconAnchor:[7,7] });
+    const marker = L.marker([shop.lat, shop.lng], { icon });
+
+    const stars = '★'.repeat(Math.round(shop.rating||0)) + '☆'.repeat(5-Math.round(shop.rating||0));
+    const walkHtml = walkMin ? `<div class="popup-walk">🚶 徒歩約${walkMin}分</div>` : '';
+
+    marker.bindPopup(`
+      <div class="popup-name">${shop.name}</div>
+      <div class="popup-pref">${shop.pref}${shop.city?' · '+shop.city:''}</div>
+
+      ${walkHtml}
+      <div style="margin-top:6px">${(shop.tags||[]).map(tagLabel).join(' ')}</div>
+      <span class="popup-link" onclick="openModal(${shop.id})">詳細を見る →</span>
+    `, { maxWidth:260 });
+    markerGroup.addLayer(marker);
+  });
+}
+
+function tagLabel(t) {
+  const m={specialty:'スペシャルティ',online:'通販あり',scaj:'SCAJ会員',cafe:'カフェ'};
+  const c={specialty:'tag-specialty',online:'tag-online',scaj:'tag-scaj',cafe:'tag-cafe'};
+  return `<span class="tag ${c[t]||''}">${m[t]||t}</span>`;
+}
+
+/* ── カード描画 ── */
+function renderCards() {
+  const grid = document.getElementById('shop-grid');
+  grid.innerHTML = '';
+
+  // ヘッダー行
+  const hdr = document.createElement('div');
+  hdr.className = 'shop-grid-header';
+  hdr.innerHTML = `
+    <div class="col-num">#</div>
+    <div class="col-name">店舗名</div>
+    <div class="col-tags">種別</div>
+    <div class="col-walk">${myLat?'徒歩':''}</div>`;
+  grid.appendChild(hdr);
+
+  filteredShops.slice(0, displayedCount).forEach((shop, idx) => {
+    const dist = (myLat && shop.lat && shop.lng)
+      ? distanceMeters(myLat, myLng, shop.lat, shop.lng) : null;
+    const walkMin = dist ? walkMinutesFromDist(dist) : null;
+
+    const card = document.createElement('div');
+    card.className = 'shop-card';
+    card.onclick = () => openModal(shop.id);
+
+    const tagsHtml = (shop.tags||[]).map(tagLabel).join('');
+    const walkHtml = walkMin ? `🚶${walkMin}分` : '';
+
+    card.innerHTML = `
+      <div class="col-num">${idx+1}</div>
+      <div class="col-name">
+        <div class="card-name">${shop.name}</div>
+        <div class="card-pref">${shop.pref}${shop.city?' · '+shop.city:''}</div>
+      </div>
+      <div class="col-tags">${tagsHtml}</div>
+      <div class="col-walk">${walkHtml}</div>`;
+    grid.appendChild(card);
+  });
+
+  document.getElementById('count-display').textContent = filteredShops.length;
+  document.getElementById('load-more-btn').style.display =
+    filteredShops.length > displayedCount ? 'inline-block' : 'none';
+}
+
+/* ── フィルタリング ── */
+function filterShops() {
+  const q     = document.getElementById('search-input').value.toLowerCase();
+  const pref  = document.getElementById('pref-filter').value;
+  const style = document.getElementById('style-filter').value;
+
+  filteredShops = ALL_SHOPS.filter(s => {
+    const mQ = !q || s.name.toLowerCase().includes(q)
+                  || (s.address||'').toLowerCase().includes(q)
+                  || (s.city||'').includes(q)
+                  || (s.category||'').toLowerCase().includes(q);
+    const mP = !pref  || s.pref === pref;
+    const mS = !style || (s.tags||[]).includes(style);
+    // 徒歩フィルター
+    const mW = !myLat || walkMinutes === 0 || (
+      s.lat && s.lng &&
+      distanceMeters(myLat, myLng, s.lat, s.lng) <= walkToMeters(walkMinutes)
+    );
+    return mQ && mP && mS && mW;
+  });
+
+  // 現在地があれば距離順にソート
+  if (myLat) {
+    filteredShops.sort((a, b) => {
+      const da = distanceMeters(myLat, myLng, a.lat, a.lng);
+      const db = distanceMeters(myLat, myLng, b.lat, b.lng);
+      return da - db;
+    });
+  }
+
+  displayedCount = 12;
+  updateMarkers(filteredShops);
+  renderCards();
+
+  if (filteredShops.length > 0 && !myLat) {
+    map.fitBounds(L.latLngBounds(filteredShops.map(s=>[s.lat,s.lng])), { padding:[40,40] });
+  }
+}
+
+function loadMore() { displayedCount += 50; renderCards(); }
+
+/* ── モーダル ── */
+function openModal(id) {
+  const shop = ALL_SHOPS.find(s => s.id === id);
+  if (!shop) return;
+
+  const dist = (myLat && shop.lat && shop.lng)
+    ? distanceMeters(myLat, myLng, shop.lat, shop.lng) : null;
+  const walkMin = dist ? walkMinutesFromDist(dist) : null;
+
+  const galleryHtml = (shop.photos && shop.photos.length)
+    ? `<div class="modal-gallery">${shop.photos.map(p=>`<img src="${p}" alt="${shop.name}" loading="lazy" onerror="this.style.display='none'">`).join('')}</div>`
+    : '';
+
+  const stars = '★'.repeat(Math.round(shop.rating||0)) + '☆'.repeat(5-Math.round(shop.rating||0));
+  const ratingHtml = shop.rating
+    ? `<div class="modal-rating"><span class="modal-stars">${stars}</span><span class="modal-rating-num">${shop.rating}${shop.reviews?' · '+shop.reviews.toLocaleString()+'件のレビュー':''}</span></div>` : '';
+
+  const walkHtml = walkMin
+    ? `<div class="modal-walk">🚶 現在地から徒歩約${walkMin}分（直線距離 ${Math.round(dist)}m）</div>` : '';
+
+  const today = ['日','月','火','水','木','金','土'][new Date().getDay()];
+  let hoursHtml = '';
+  if (shop.hours && Object.keys(shop.hours).length) {
+    hoursHtml = `<table class="hours-table">${Object.entries(shop.hours).map(([d,t])=>
+      `<tr class="${d.includes(today)?'today':''}"><td>${d}</td><td>${t}</td></tr>`
+    ).join('')}</table>`;
+  }
+
+  const payHtml = (shop.payment && shop.payment.length)
+    ? `<div class="chip-list">${shop.payment.map(p=>`<span class="chip">${p}</span>`).join('')}</div>`
+    : '<span style="color:var(--text-dim);font-size:.85rem">情報なし</span>';
+
+  const svcHtml = (shop.services && shop.services.length)
+    ? `<div class="chip-list">${shop.services.map(s=>`<span class="chip">${s}</span>`).join('')}</div>`
+    : '<span style="color:var(--text-dim);font-size:.85rem">情報なし</span>';
+
+  const mapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(shop.name+' '+shop.address)}`;
+  const dirUrl  = myLat
+    ? `https://www.google.com/maps/dir/${myLat},${myLng}/${shop.lat},${shop.lng}`
+    : mapsUrl;
+
+  const btnHtml = [
+    shop.website ? `<a class="btn-action btn-primary" href="${shop.website}" target="_blank">ウェブサイト</a>` : '',
+    `<a class="btn-action btn-secondary" href="${dirUrl}" target="_blank">${myLat?'ここから徒歩ルート':'Google Maps'}</a>`,
+    shop.instagram ? `<a class="btn-action btn-secondary" href="https://instagram.com/${shop.instagram.replace('@','')}" target="_blank">Instagram</a>` : '',
+    shop.phone ? `<a class="btn-action btn-secondary" href="tel:${shop.phone}">${shop.phone}</a>` : '',
+  ].filter(Boolean).join('');
+
+  document.getElementById('modal-inner').innerHTML = `
+    ${galleryHtml}
+    <div class="modal-body">
+      <div class="modal-pref">${shop.pref}${shop.city?' · '+shop.city:''}</div>
+      <div class="modal-name">${shop.name}</div>
+      ${shop.category?`<div class="modal-category">${shop.category}</div>`:''}
+      ${ratingHtml}
+      ${walkHtml}
+      <div class="modal-tags">${(shop.tags||[]).map(tagLabel).join('')}</div>
+      <div class="modal-info">
+        <div class="info-block">
+          <div class="info-label">住所</div>
+          <div class="info-value">${shop.address||'—'}</div>
+        </div>
+        <div class="info-block">
+          <div class="info-label">電話番号</div>
+          <div class="info-value">${shop.phone?`<a href="tel:${shop.phone}">${shop.phone}</a>`:'—'}</div>
+        </div>
+        <div class="info-block">
+          <div class="info-label">営業時間</div>
+          <div class="info-value">${hoursHtml||'—'}</div>
+        </div>
+        <div class="info-block">
+          <div class="info-label">支払方法</div>
+          <div class="info-value">${payHtml}</div>
+        </div>
+        <div class="info-block" style="grid-column:1/-1">
+          <div class="info-label">サービス</div>
+          <div class="info-value">${svcHtml}</div>
+        </div>
+      </div>
+      <div class="modal-actions">${btnHtml}</div>
+    </div>`;
+
+  document.getElementById('modal-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal(e) {
+  if (e && e.target !== document.getElementById('modal-overlay') && !e.target.classList.contains('modal-close')) return;
+  document.getElementById('modal-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', e => { if (e.key==='Escape') closeModal(); });
+
+/* ── フォールバック ── */
+const FALLBACK = [
+  {id:1,name:"猿田彦珈琲 本店",pref:"東京都",city:"渋谷区",address:"東京都渋谷区神宮前4-1-20",lat:35.669,lng:139.709,rating:4.2,reviews:843,tags:["specialty","cafe","online"],website:"https://www.sarutahikocoffee.com",category:"コーヒーショップ",hours:{"月曜日":"8:00〜22:00","火曜日":"8:00〜22:00","水曜日":"8:00〜22:00","木曜日":"8:00〜22:00","金曜日":"8:00〜22:00","土曜日":"9:00〜21:00","日曜日":"9:00〜21:00"},payment:["クレジットカード","PayPay","現金"],services:["テイクアウト","イートイン"],photos:[]},
+  {id:2,name:"丸山珈琲 小諸本店",pref:"長野県",city:"小諸市",address:"長野県小諸市古城2-1-25",lat:36.325,lng:138.428,rating:4.6,reviews:1204,tags:["specialty","online","scaj"],website:"https://www.maruyamacoffee.com",category:"スペシャルティコーヒー",hours:{},payment:["現金","クレジットカード"],services:["テイクアウト","通販"],photos:[]},
+  {id:3,name:"REC COFFEE 薬院本店",pref:"福岡県",city:"福岡市中央区",address:"福岡県福岡市中央区薬院1-6-40",lat:33.579,lng:130.398,rating:4.4,reviews:1102,tags:["specialty","cafe","online","scaj"],website:"https://rec-coffee.com",category:"カフェ",hours:{},payment:["クレジットカード"],services:["テイクアウト","イートイン","通販"],photos:[]},
+];
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
