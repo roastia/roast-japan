@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ROAST JAPAN — 全国自家焙煎珈琲店データベース</title>
+<title>全日本自家焙煎珈琲店データベース</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
@@ -29,13 +29,13 @@ nav a{font-family:var(--sans);font-size:11px;letter-spacing:.15em;color:var(--te
 nav a:hover{color:var(--gold);}
 
 /* HERO */
-.hero{padding:7rem 2rem 5rem;max-width:900px;margin:0 auto;text-align:center;border-bottom:1px solid var(--border);}
-.hero-eyebrow{font-family:var(--sans);font-size:11px;letter-spacing:.3em;color:var(--gold-dim);text-transform:uppercase;margin-bottom:1.5rem;font-weight:300;}
-.hero h1{font-size:clamp(2.8rem,6vw,5.5rem);font-weight:700;line-height:1.1;color:var(--cream);margin-bottom:1.5rem;}
+.hero{padding:3rem 2rem 2.5rem;max-width:900px;margin:0 auto;text-align:center;border-bottom:1px solid var(--border);}
+.hero-eyebrow{font-family:var(--sans);font-size:11px;letter-spacing:.3em;color:var(--gold-dim);text-transform:uppercase;margin-bottom:.8rem;font-weight:300;}
+.hero h1{font-size:clamp(2rem,5vw,3.8rem);font-weight:700;line-height:1.1;color:var(--cream);margin-bottom:.8rem;}
 .hero h1 em{font-style:italic;color:var(--accent);}
-.hero-sub{font-family:var(--sans);font-size:1rem;color:var(--cream-dim);max-width:520px;margin:0 auto 2.5rem;font-weight:300;letter-spacing:.02em;}
-.hero-stats{display:flex;justify-content:center;gap:3rem;margin-top:3rem;padding-top:2.5rem;border-top:1px solid var(--border2);}
-.stat-num{font-family:var(--serif);font-size:2.2rem;font-weight:700;color:var(--gold);display:block;line-height:1;margin-bottom:.3rem;}
+.hero-sub{font-family:var(--sans);font-size:.85rem;color:var(--cream-dim);max-width:520px;margin:0 auto 1.2rem;font-weight:300;letter-spacing:.02em;}
+.hero-stats{display:flex;justify-content:center;gap:2rem;margin-top:1.5rem;padding-top:1.2rem;border-top:1px solid var(--border2);}
+.stat-num{font-family:var(--serif);font-size:1.6rem;font-weight:700;color:var(--gold);display:block;line-height:1;margin-bottom:.2rem;}
 .stat-label{font-family:var(--sans);font-size:10px;letter-spacing:.2em;color:var(--text-dim);text-transform:uppercase;}
 
 /* SEARCH */
@@ -51,30 +51,31 @@ nav a:hover{color:var(--gold);}
 .result-count strong{color:var(--gold);}
 
 /* 位置情報バー */
-.location-bar{max-width:1100px;margin:.8rem auto 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-.btn-locate{background:transparent;border:1px solid var(--border2);color:var(--gold-dim);font-family:var(--mono);font-size:11px;letter-spacing:.12em;padding:7px 14px;border-radius:3px;cursor:pointer;transition:all .2s;white-space:nowrap;}
-.btn-locate:hover{border-color:var(--gold);color:var(--gold);}
-.btn-locate.active{background:var(--gold-dim);color:var(--bg);border-color:var(--gold-dim);}
-.loc-sep{color:var(--text-dim);font-family:var(--mono);font-size:11px;padding:0 2px;}
-.addr-search{display:flex;gap:6px;align-items:center;flex:1;min-width:220px;}
-.addr-input{flex:1;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:var(--serif);font-size:13px;padding:7px 12px;border-radius:4px;outline:none;transition:border-color .2s;}
+.location-bar{max-width:1100px;margin:.5rem auto 0;display:grid;grid-template-columns:auto 1fr auto;gap:6px;align-items:center;}
+@media(max-width:640px){.location-bar{grid-template-columns:1fr 1fr;}}
+.btn-locate{background:var(--bg);border:1px solid var(--border2);color:var(--gold);font-family:var(--sans);font-size:11px;font-weight:600;letter-spacing:.05em;padding:7px 12px;border-radius:6px;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.btn-locate:hover{border-color:var(--gold);background:var(--bg3);}
+.btn-locate.active{background:var(--gold);color:#fff;border-color:var(--gold);}
+.loc-sep{display:none;}
+.addr-search{display:flex;gap:5px;align-items:center;}
+.addr-input{flex:1;background:var(--bg);border:1px solid var(--border2);color:var(--text);font-family:var(--serif);font-size:13px;padding:7px 10px;border-radius:6px;outline:none;transition:border-color .2s;min-width:0;}
 .addr-input::placeholder{color:var(--text-dim);}
 .addr-input:focus{border-color:var(--gold-dim);}
-.btn-addr{background:transparent;border:1px solid var(--border2);color:var(--gold-dim);font-family:var(--mono);font-size:10px;letter-spacing:.1em;padding:7px 14px;border-radius:3px;cursor:pointer;transition:all .2s;white-space:nowrap;}
-.btn-addr:hover{border-color:var(--gold);color:var(--gold);}
-.walk-filters{display:flex;gap:5px;align-items:center;opacity:0;pointer-events:none;transition:opacity .3s;}
+.btn-addr{background:var(--gold);color:#fff;border:none;font-family:var(--sans);font-size:11px;font-weight:600;padding:7px 12px;border-radius:6px;cursor:pointer;transition:opacity .2s;white-space:nowrap;}
+.btn-addr:hover{opacity:.85;}
+.walk-filters{display:flex;gap:4px;align-items:center;opacity:0;pointer-events:none;transition:opacity .3s;grid-column:1/-1;flex-wrap:wrap;}
 .walk-filters.visible{opacity:1;pointer-events:all;}
-.walk-label{font-family:var(--mono);font-size:10px;color:var(--text-dim);letter-spacing:.1em;}
-.btn-walk{background:transparent;border:1px solid var(--border);color:var(--text-dim);font-family:var(--mono);font-size:10px;padding:5px 11px;border-radius:20px;cursor:pointer;transition:all .2s;white-space:nowrap;}
-.btn-walk:hover{border-color:var(--gold-dim);color:var(--gold-dim);}
-.btn-walk.active{background:var(--gold-dim);color:var(--bg);border-color:var(--gold-dim);}
-.location-status{font-family:var(--mono);font-size:10px;color:var(--text-dim);letter-spacing:.05em;}
+.walk-label{font-family:var(--sans);font-size:10px;color:var(--text-dim);font-weight:600;margin-right:2px;}
+.btn-walk{background:var(--bg);border:1px solid var(--border2);color:var(--text-dim);font-family:var(--sans);font-size:10px;font-weight:600;padding:4px 10px;border-radius:20px;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.btn-walk:hover{border-color:var(--gold);color:var(--gold);}
+.btn-walk.active{background:var(--gold);color:#fff;border-color:var(--gold);}
+.location-status{font-family:var(--sans);font-size:10px;color:var(--text-dim);grid-column:1/-1;}
 .location-status.ok{color:#50a078;}
 .location-status.err{color:#c06040;}
 
 /* MAP */
 #section-map{border-bottom:1px solid var(--border);}
-.section-header{max-width:1100px;margin:0 auto;padding:2rem 2rem 1rem;display:flex;align-items:baseline;gap:1rem;}
+.section-header{max-width:1100px;margin:0 auto;padding:1rem 2rem .5rem;display:flex;align-items:baseline;gap:1rem;}
 .section-title{font-family:var(--serif);font-size:1.2rem;font-weight:600;letter-spacing:.05em;color:var(--cream);}
 .section-tag{font-family:var(--sans);font-size:10px;letter-spacing:.15em;color:var(--gold-dim);text-transform:uppercase;font-weight:600;}
 #map{height:500px;width:100%;background:var(--bg3);position:relative;z-index:0;isolation:isolate;}
@@ -98,9 +99,9 @@ nav a:hover{color:var(--gold);}
 .popup-link:hover{color:var(--gold);}
 
 /* SHOP GRID */
-#section-list{padding:0 0 4rem;}
+#section-list{padding:0 0 2rem;}
 /* 行リスト形式 */
-.shop-grid{max-width:1100px;margin:0 auto;padding:1rem 2rem 0;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:6px;overflow:hidden;box-shadow:0 2px 16px rgba(120,80,30,.06);}
+.shop-grid{max-width:1100px;margin:0 auto;padding:.5rem 2rem 0;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:6px;overflow:hidden;box-shadow:0 2px 16px rgba(120,80,30,.06);}
 .shop-card{background:var(--bg);border:none;cursor:pointer;transition:background .15s;text-align:left;display:flex;align-items:center;gap:0;border-bottom:1px solid var(--border);position:relative;min-height:48px;-webkit-tap-highlight-color:rgba(140,90,40,.1);}
 .shop-card:last-child{border-bottom:none;}
 .shop-card:hover{background:var(--bg2);}
@@ -123,7 +124,7 @@ nav a:hover{color:var(--gold);}
 .shop-grid-header .col-name{padding-left:4px;}
 
 /* LOAD MORE */
-.load-more-wrap{text-align:center;padding:2.5rem;}
+.load-more-wrap{text-align:center;padding:1.2rem;}
 .btn-load-more{background:transparent;border:1px solid var(--border2);color:var(--gold);font-family:var(--sans);font-size:11px;letter-spacing:.15em;text-transform:uppercase;padding:12px 32px;cursor:pointer;border-radius:4px;transition:all .2s;font-weight:600;}
 .btn-load-more:hover{background:var(--bg2);border-color:var(--gold);color:var(--gold);}
 
@@ -164,7 +165,7 @@ nav a:hover{color:var(--gold);}
 .btn-secondary{background:transparent;color:var(--gold-dim);border:1px solid var(--border2);}
 .btn-secondary:hover{border-color:var(--gold);color:var(--gold);}
 
-footer{border-top:1px solid var(--border);padding:2rem;text-align:center;font-family:var(--sans);font-size:11px;color:var(--text-dim);letter-spacing:.05em;}
+footer{border-top:1px solid var(--border);padding:1rem;text-align:center;font-family:var(--sans);font-size:11px;color:var(--text-dim);letter-spacing:.05em;}
 footer a{color:var(--gold-dim);text-decoration:none;}
 footer a:hover{color:var(--gold);}
 
@@ -179,7 +180,7 @@ footer a:hover{color:var(--gold);}
   nav a { font-size: 10px; letter-spacing: .08em; }
 
   /* ヒーロー */
-  .hero { padding: 3.5rem 1.2rem 3rem; }
+  .hero { padding: 2rem 1.2rem 1.5rem; }
   .hero h1 { font-size: 2.2rem; }
   .hero-sub { font-size: .9rem; }
   .hero-stats { gap: 1.2rem; flex-wrap: wrap; justify-content: center; }
@@ -187,11 +188,11 @@ footer a:hover{color:var(--gold);}
   .stat-num { font-size: 1.6rem; }
 
   /* 検索バー */
-  .search-section { padding: 1rem 1rem .8rem; top: 50px; }
+  .search-section { padding: .6rem .8rem; top: 50px; }
   .search-inner { gap: 8px; }
-  .search-box input { font-size: 14px; padding: 9px 12px 9px 34px; }
-  .filter-select { font-size: 11px; padding: 9px 24px 9px 10px; }
-  .result-count { width: 100%; text-align: right; font-size: 10px; }
+  .search-box input { font-size: 13px; }
+  .filter-select { font-size: 11px; }
+  .result-count { font-size: 9px; }
 
   /* 位置情報バー */
   .location-bar { gap: 6px; margin-top: .6rem; }
@@ -258,18 +259,18 @@ footer a:hover{color:var(--gold);}
 <body>
 
 <header>
-  <div class="logo">Roast Japan <span>/</span> 全国自家焙煎珈琲店</div>
+  <div class="logo">roastia</div>
   <nav>
     <a href="#section-map">地図</a>
     <a href="#section-list">一覧</a>
-    <a href="#about">このサイトについて</a>
+
   </nav>
 </header>
 
 <section class="hero">
-  <p class="hero-eyebrow">Japan Specialty Coffee Database</p>
-  <h1>全国の<em>自家焙煎</em>珈琲店を<br>ひとつの地図に。</h1>
-  <p class="hero-sub">OpenStreetMap・Google Maps・SCAJの情報を統合した、日本最大級の自家焙煎珈琲店データベース。</p>
+  <p class="hero-eyebrow">roastia</p>
+  <h1>全日本自家焙煎珈琲店<br><em>データベース</em></h1>
+  <p class="hero-sub">日本全国の自家焙煎珈琲店を、ひとつの地図に。<br>現在地・住所から徒歩圏内のロースターを探せる、<br>日本最大級の自家焙煎珈琲店データベース。</p>
   <div class="hero-stats">
     <div><span class="stat-num" id="stat-total">—</span><span class="stat-label">収録店舗数</span></div>
     <div><span class="stat-num">47</span><span class="stat-label">都道府県</span></div>
@@ -335,7 +336,7 @@ footer a:hover{color:var(--gold);}
   </div>
 </section>
 
-<footer id="about">
+<footer>
   <p style="margin-bottom:.5rem">データソース: <a href="https://www.openstreetmap.org">OpenStreetMap</a> · <a href="https://scaj.org">SCAJ</a> · Google Maps</p>
 
 </footer>
@@ -710,7 +711,7 @@ document.addEventListener('keydown', e => { if (e.key==='Escape') closeModal(); 
 /* ── フォールバック ── */
 const FALLBACK = [
   {id:1,name:"猿田彦珈琲 本店",pref:"東京都",city:"渋谷区",address:"東京都渋谷区神宮前4-1-20",lat:35.669,lng:139.709,rating:4.2,reviews:843,tags:["specialty","cafe","online"],website:"https://www.sarutahikocoffee.com",category:"コーヒーショップ",hours:{"月曜日":"8:00〜22:00","火曜日":"8:00〜22:00","水曜日":"8:00〜22:00","木曜日":"8:00〜22:00","金曜日":"8:00〜22:00","土曜日":"9:00〜21:00","日曜日":"9:00〜21:00"},payment:["クレジットカード","PayPay","現金"],services:["テイクアウト","イートイン"],photos:[]},
-  {id:2,name:"丸山珈琲 小諸本店",pref:"長野県",city:"小諸市",address:"長野県小諸市古城2-1-25",lat:36.325,lng:138.428,rating:4.6,reviews:1204,tags:["specialty","online","scaj"],website:"https://www.maruyamacoffee.com",category:"スペシャルティコーヒー",hours:{},payment:["現金","クレジットカード"],services:["テイクアウト","通販"],photos:[]},
+  {id:2,name:"丸山珈琲 小諸本店",pref:"長野県",city:"小諸市",address:"長野県小諸市古城2-1-25",lat:36.325,lng:138.428,rating:4.6,reviews:1204,tags:["specialty","online","scaj"],website:"https://www.maruyamacoffee.com",category:"自家焙煎珈琲店",hours:{},payment:["現金","クレジットカード"],services:["テイクアウト","通販"],photos:[]},
   {id:3,name:"REC COFFEE 薬院本店",pref:"福岡県",city:"福岡市中央区",address:"福岡県福岡市中央区薬院1-6-40",lat:33.579,lng:130.398,rating:4.4,reviews:1102,tags:["specialty","cafe","online","scaj"],website:"https://rec-coffee.com",category:"カフェ",hours:{},payment:["クレジットカード"],services:["テイクアウト","イートイン","通販"],photos:[]},
 ];
 
