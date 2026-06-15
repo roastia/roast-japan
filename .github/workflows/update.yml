@@ -2,7 +2,7 @@ name: 自家焙煎珈琲店データ自動更新
 
 on:
   schedule:
-    - cron: '0 18 * * 0'   # 毎週月曜 AM3:00 JST
+    - cron: '0 18 * * 0'
   workflow_dispatch:
     inputs:
       prefectures:
@@ -16,11 +16,10 @@ env:
 jobs:
   scrape-and-deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 60   # 1県あたり最大60分
-
+    timeout-minutes: 60
     strategy:
-      max-parallel: 1      # 1県ずつ順番に実行
-      fail-fast: false     # 1県失敗しても他の県は続行
+      max-parallel: 1
+      fail-fast: false
       matrix:
         prefecture:
           - 北海道
@@ -72,7 +71,6 @@ jobs:
           - 沖縄県
 
     steps:
-      # 指定県フィルター（workflow_dispatchで県を指定した場合はその県のみ実行）
       - name: 対象県チェック
         id: check
         run: |
@@ -85,7 +83,6 @@ jobs:
               echo "run=true" >> $GITHUB_OUTPUT
             else
               echo "run=false" >> $GITHUB_OUTPUT
-              echo "$PREF はスキップ"
             fi
           fi
 
@@ -110,61 +107,22 @@ jobs:
         if: steps.check.outputs.run == 'true'
         run: mkdir -p output
 
-      - name: "${{ matrix.prefecture }} スクレイピング"
+      - name: スクレイピング
         if: steps.check.outputs.run == 'true'
-        run: |
-          python scraper_google_maps.py --pref "${{ matrix.prefecture }}" --dry-run
+        run: python scraper_google_maps.py --pref "${{ matrix.prefecture }}" --dry-run
         env:
           PYTHONUNBUFFERED: '1'
 
-      - name: shops.json に追加マージ
+      - name: マージ
+        if: steps.check.outputs.run == 'true'
+        run: python merge_shops.py "${{ matrix.prefecture }}"
+
+      - name: コミット
         if: steps.check.outputs.run == 'true'
         run: |
-          if ! ls output/shops_*.json 1> /dev/null 2>&1; then
-            echo "取得データなし。スキップ"
-            exit 0
-          fi
-
-          python - << 'PYEOF'
-import json
-from pathlib import Path
-
-# 新規取得データを変換
-import subprocess
-subprocess.run(['python', 'convert_to_web.py'] +
-    [str(p) for p in Path('output').glob('shops_*.json')] +
-    ['--out', 'shops_new.json'], check=True)
-
-new_data = json.load(open('shops_new.json', encoding='utf-8'))
-print(f"新規取得: {len(new_data)}件")
-
-# 既存データと重複除去マージ
-existing = []
-if Path('shops.json').exists():
-    existing = json.load(open('shops.json', encoding='utf-8'))
-    print(f"既存: {len(existing)}件")
-
-seen = set()
-merged = []
-for s in existing + new_data:
-    key = (s.get('name',''), s.get('pref',''))
-    if key not in seen:
-        seen.add(key)
-        merged.append(s)
-
-for i, s in enumerate(merged):
-    s['id'] = i + 1
-
-json.dump(merged, open('shops.json','w',encoding='utf-8'), ensure_ascii=False, indent=2)
-print(f"マージ後: {len(merged)}件")
-PYEOF
-
-      - name: "${{ matrix.prefecture }} をコミット"
-        if: steps.check.outputs.run == 'true'
-        run: |
-          git config user.name  "github-actions[bot]"
+          git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git pull --rebase origin main   # 他の県のpushと競合しないよう取得
+          git pull --rebase origin main
           git add shops.json
           if git diff --staged --quiet; then
             echo "変更なし"
@@ -172,5 +130,5 @@ PYEOF
             COUNT=$(python -c "import json; print(len(json.load(open('shops.json'))))")
             git commit -m "🔄 ${{ matrix.prefecture }}: ${COUNT}件 ($(date +'%Y-%m-%d'))"
             git push
-            echo "✅ ${{ matrix.prefecture }} 完了: ${COUNT}件"
+            echo "完了: ${COUNT}件"
           fi
