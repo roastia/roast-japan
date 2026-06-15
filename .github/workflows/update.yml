@@ -113,22 +113,39 @@ jobs:
         env:
           PYTHONUNBUFFERED: '1'
 
-      - name: マージ
-        if: steps.check.outputs.run == 'true'
-        run: python merge_shops.py "${{ matrix.prefecture }}"
-
-      - name: コミット
+      - name: コミット（リトライあり）
         if: steps.check.outputs.run == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git pull --rebase origin main
-          git add shops.json
-          if git diff --staged --quiet; then
-            echo "変更なし"
-          else
+
+          for i in 1 2 3 4 5; do
+            echo "試行 ${i}/5"
+
+            # 最新を取得してからマージ実行
+            git fetch origin main
+            git checkout origin/main -- shops.json 2>/dev/null || true
+
+            python merge_shops.py "${{ matrix.prefecture }}"
+
+            git add shops.json
+            if git diff --staged --quiet; then
+              echo "変更なし。スキップ"
+              exit 0
+            fi
+
             COUNT=$(python -c "import json; print(len(json.load(open('shops.json'))))")
             git commit -m "🔄 ${{ matrix.prefecture }}: ${COUNT}件 ($(date +'%Y-%m-%d'))"
-            git push
-            echo "完了: ${COUNT}件"
-          fi
+
+            if git push origin main; then
+              echo "✅ 完了: ${COUNT}件"
+              exit 0
+            else
+              echo "競合。リトライ..."
+              git reset --soft HEAD~1
+              sleep $((i * 5))
+            fi
+          done
+
+          echo "❌ 失敗"
+          exit 1
