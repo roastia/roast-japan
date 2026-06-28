@@ -3,16 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>日本自家焙煎珈琲店データベース</title>
-<!-- Leaflet -->
+<title>roastia - 日本最大級の自家焙煎珈琲店データベース</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<!-- MarkerCluster -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
-<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-<!-- Leaflet Routing Machine -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -21,10 +18,19 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Josefin+Sans:wght@300;400;600&family=DM+Mono:wght@300;400&display=swap');
 :root {
-  --bg:#faf7f2; --bg2:#f3ede3; --bg3:#ede4d6; --surface:#e8dece;
-  --border:rgba(160,120,70,0.15); --border2:rgba(160,120,70,0.30);
-  --gold:#8b5e2a; --gold-dim:#b07840; --cream:#3d2b1a; --cream-dim:#7a5c3a;
-  --text:#3d2b1a; --text-dim:#9a7a58; --accent:#c06a1a;
+  --bg:#faf7f4;
+  --bg2:#f0e8df;
+  --bg3:#e6ddd3;
+  --surface:#ddd0c4;
+  --border:rgba(111,78,55,0.15);
+  --border2:rgba(111,78,55,0.30);
+  --gold:#6F4E37;
+  --gold-dim:#7D4A31;
+  --cream:#3d2010;
+  --cream-dim:#7D4A31;
+  --text:#3d2010;
+  --text-dim:#8a6650;
+  --accent:#882D17;
   --mono:'DM Mono',monospace; --serif:'Playfair Display',Georgia,serif;
   --sans:'Josefin Sans',sans-serif;
 }
@@ -33,34 +39,29 @@ html{scroll-behavior:smooth;}
 body{background:var(--bg);color:var(--text);font-family:var(--serif);font-size:16px;line-height:1.7;min-height:100vh;}
 
 /* HEADER */
-header{position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid var(--border);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:56px;box-shadow:0 1px 12px rgba(160,120,70,.08);}
+header{position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid var(--border);padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:52px;box-shadow:0 1px 8px rgba(0,0,0,.06);}
+.header-mobile-bar{display:none;background:var(--bg2);border-bottom:1px solid var(--border);padding:.4rem 1rem;gap:.8rem;align-items:baseline;font-family:var(--sans);font-size:11px;color:var(--text-dim);}
+.header-mobile-bar strong{font-family:var(--serif);font-size:13px;font-weight:600;color:var(--text);margin-right:2px;}
+.header-left{display:flex;align-items:baseline;gap:.6rem;}
+.header-sub{font-family:var(--sans);font-size:11px;color:var(--text-dim);letter-spacing:.05em;}
+.header-count{font-family:var(--mono);font-size:11px;color:var(--text-dim);}
+.header-count span{font-family:var(--serif);font-size:14px;font-weight:600;color:var(--text);margin-right:3px;}
 .logo{font-size:13px;letter-spacing:.25em;font-family:var(--sans);font-weight:600;color:var(--gold);text-transform:uppercase;}
-.logo span{color:var(--text-dim);margin:0 .5em;}
 nav{display:flex;gap:1.5rem;align-items:center;}
 nav a{font-family:var(--sans);font-size:11px;letter-spacing:.15em;color:var(--text-dim);text-decoration:none;text-transform:uppercase;transition:color .2s;font-weight:400;}
 nav a:hover{color:var(--gold);}
+
+/* ログインボタン */
 .btn-login{background:transparent;border:1px solid var(--border2);color:var(--gold);font-family:var(--sans);font-size:11px;font-weight:600;letter-spacing:.05em;padding:5px 14px;border-radius:4px;cursor:pointer;transition:all .2s;}
 .btn-login:hover{border-color:var(--gold);background:var(--bg2);}
 .btn-login.logged-in{color:var(--text-dim);border-color:var(--border);}
 
-/* HERO */
-.hero{padding:3rem 2rem 2.5rem;max-width:900px;margin:0 auto;text-align:center;border-bottom:1px solid var(--border);}
-.hero-eyebrow{font-family:var(--sans);font-size:11px;letter-spacing:.3em;color:var(--gold-dim);text-transform:uppercase;margin-bottom:.8rem;font-weight:300;}
-.hero h1{font-size:clamp(2rem,5vw,3.8rem);font-weight:700;line-height:1.1;color:var(--cream);margin-bottom:.8rem;}
-.hero h1 em{font-style:italic;color:var(--accent);}
-.hero-sub{font-family:var(--sans);font-size:.85rem;color:var(--cream-dim);max-width:520px;margin:0 auto 1.2rem;font-weight:300;letter-spacing:.02em;}
-.hero-stats{display:flex;justify-content:center;gap:2rem;margin-top:1.5rem;padding-top:1.2rem;border-top:1px solid var(--border2);}
-.stat-num{font-family:var(--serif);font-size:1.6rem;font-weight:700;color:var(--gold);display:block;line-height:1;margin-bottom:.2rem;}
-.stat-label{font-family:var(--sans);font-size:10px;letter-spacing:.2em;color:var(--text-dim);text-transform:uppercase;}
-
 /* SEARCH */
-.search-section{padding:.7rem 2rem;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:56px;z-index:90;box-shadow:0 2px 12px rgba(160,120,70,.06);}
-.search-wrap{max-width:1100px;margin:0 auto;display:flex;flex-direction:column;gap:.5rem;}
-.search-row1{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
-.search-row2{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
-.search-inner{max-width:1100px;margin:0 auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.search-section{padding:.6rem 2rem;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:52px;z-index:90;box-shadow:0 2px 12px rgba(0,0,0,.04);}
+.search-wrap{max-width:1100px;margin:0 auto;display:flex;flex-direction:column;gap:0;}
+.search-row2{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;}
 .search-box{flex:1;min-width:200px;position:relative;}
-.search-box input{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:var(--serif);font-size:15px;padding:9px 16px 9px 38px;border-radius:4px;outline:none;transition:border-color .2s;}
+.search-box input{width:100%;background:var(--bg);border:1.5px solid var(--border2);color:var(--text);font-family:var(--serif);font-size:14px;padding:9px 16px 9px 38px;border-radius:6px;outline:none;transition:border-color .2s;}
 .search-box input::placeholder{color:var(--text-dim);}
 .search-box input:focus{border-color:var(--gold-dim);}
 .search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:14px;pointer-events:none;}
@@ -69,58 +70,62 @@ nav a:hover{color:var(--gold);}
 .result-count strong{color:var(--gold);}
 .cafe-radio{display:flex;gap:14px;align-items:center;}
 .radio-label{display:flex;align-items:center;gap:4px;font-family:var(--sans);font-size:12px;color:var(--text);cursor:pointer;white-space:nowrap;}
-.radio-label input[type="radio"]{accent-color:var(--gold);width:13px;height:13px;cursor:pointer;}
+.radio-label input[type="radio"]{accent-color:#6F4E37;width:13px;height:13px;cursor:pointer;}
 
 /* 位置情報バー */
 .location-bar{max-width:1100px;margin:.5rem auto 0;display:grid;grid-template-columns:auto 1fr auto;gap:6px;align-items:center;}
 @media(max-width:640px){.location-bar{grid-template-columns:1fr 1fr;}}
-.btn-locate{background:var(--bg);border:1px solid var(--border2);color:var(--gold);font-family:var(--sans);font-size:11px;font-weight:600;letter-spacing:.05em;padding:7px 12px;border-radius:6px;cursor:pointer;transition:all .2s;white-space:nowrap;}
-.btn-locate:hover{border-color:var(--gold);background:var(--bg3);}
-.btn-locate.active{background:var(--gold);color:#fff;border-color:var(--gold);}
-.loc-sep{display:none;}
+.btn-locate{background:var(--bg);border:1px solid var(--border2);color:var(--text);font-family:var(--sans);font-size:11px;font-weight:600;letter-spacing:.05em;padding:7px 12px;border-radius:6px;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.btn-locate:hover{border-color:#111;background:var(--bg3);}
+.btn-locate.active{background:#6F4E37;color:#fff;border-color:#6F4E37;}
 .addr-search{display:flex;gap:5px;align-items:center;}
-.addr-input{flex:1;background:var(--bg);border:1px solid var(--border2);color:var(--text);font-family:var(--serif);font-size:13px;padding:7px 10px;border-radius:6px;outline:none;transition:border-color .2s;min-width:0;}
+.addr-input{flex:1;background:var(--bg3);border:1px dashed var(--border2);color:var(--text);font-family:var(--serif);font-size:13px;padding:7px 10px;border-radius:6px;outline:none;transition:border-color .2s;min-width:0;}
 .addr-input::placeholder{color:var(--text-dim);}
 .addr-input:focus{border-color:var(--gold-dim);}
-.btn-addr{background:var(--gold);color:#fff;border:none;font-family:var(--sans);font-size:11px;font-weight:600;padding:7px 12px;border-radius:6px;cursor:pointer;transition:opacity .2s;white-space:nowrap;}
+.btn-addr{background:#6F4E37;color:#fff;border:none;font-family:var(--sans);font-size:11px;font-weight:600;padding:7px 12px;border-radius:6px;cursor:pointer;transition:opacity .2s;white-space:nowrap;}
 .btn-addr:hover{opacity:.85;}
-.walk-filters{display:flex;gap:4px;align-items:center;opacity:0;pointer-events:none;transition:opacity .3s;grid-column:1/-1;flex-wrap:wrap;}
+.walk-filters{display:flex;gap:6px;align-items:center;opacity:0;pointer-events:none;transition:opacity .3s;grid-column:1/-1;flex-wrap:wrap;}
 .walk-filters.visible{opacity:1;pointer-events:all;}
-.walk-label{font-family:var(--sans);font-size:10px;color:var(--text-dim);font-weight:600;margin-right:2px;}
-.btn-walk{background:var(--bg);border:1px solid var(--border2);color:var(--text-dim);font-family:var(--sans);font-size:10px;font-weight:600;padding:4px 10px;border-radius:20px;cursor:pointer;transition:all .2s;white-space:nowrap;}
-.btn-walk:hover{border-color:var(--gold);color:var(--gold);}
-.btn-walk.active{background:var(--gold);color:#fff;border-color:var(--gold);}
+.walk-label{font-family:var(--sans);font-size:10px;color:var(--text-dim);font-weight:600;white-space:nowrap;}
 .location-status{font-family:var(--sans);font-size:10px;color:var(--text-dim);grid-column:1/-1;}
 .location-status.ok{color:#50a078;}
 .location-status.err{color:#c06040;}
 
-/* MAP */
-#section-map{border-bottom:1px solid var(--border);}
-.section-header{max-width:1100px;margin:0 auto;padding:1rem 2rem .5rem;display:flex;align-items:baseline;gap:1rem;}
+/* MAP + LIST 2カラム */
+.leaflet-routing-container{display:none !important;}
+.map-list-wrap{display:flex;align-items:stretch;border-bottom:1px solid var(--border);}
+#section-list{width:360px;flex-shrink:0;border-right:1px solid var(--border);overflow-y:auto;max-height:calc(100vh - 104px);position:sticky;top:104px;}
+#section-map{flex:1;min-width:0;}
+#section-map .section-header{padding:.8rem 1.5rem .4rem;}
+@media(max-width:900px){
+  .map-list-wrap{flex-direction:column;}
+  #section-list{width:100%;max-height:none;position:static;border-right:none;border-bottom:1px solid var(--border);}
+  #section-map{border-bottom:1px solid var(--border);}
+}
+.section-header{max-width:100%;margin:0;padding:1rem 1.5rem .5rem;display:flex;align-items:baseline;gap:1rem;}
 .section-title{font-family:var(--serif);font-size:1.2rem;font-weight:600;letter-spacing:.05em;color:var(--cream);}
+.map-hint{font-family:var(--sans);font-size:10px;color:var(--text-dim);letter-spacing:.05em;margin-left:auto;}
 .section-tag{font-family:var(--sans);font-size:10px;letter-spacing:.15em;color:var(--gold-dim);text-transform:uppercase;font-weight:600;}
-#map{height:500px;width:100%;background:var(--bg3);position:relative;z-index:0;isolation:isolate;}
+#map{height:calc(100vh - 140px);min-height:400px;width:100%;background:var(--bg3);position:relative;z-index:0;isolation:isolate;cursor:crosshair;}
+.cluster-icon{width:36px;height:36px;background:#6F4E37;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;font-weight:600;border:2px solid #fff;box-shadow:0 2px 6px rgba(111,78,55,.4);}
 .leaflet-container{background:#ede4d6 !important;font-family:var(--serif);}
-.leaflet-tile{filter:brightness(1.05) saturate(0.75) sepia(0.15);}
+.leaflet-tile{filter:brightness(1.0) saturate(0.5) sepia(0.2);}
 .my-marker{width:16px;height:16px;background:#4a9eff;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 4px rgba(74,158,255,.25);}
-.custom-marker{width:14px;height:14px;background:#c05c10;border-radius:50%;border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35);cursor:pointer;transition:transform .15s;}
-.custom-marker:hover{transform:scale(1.5);box-shadow:0 3px 10px rgba(0,0,0,.4);}
-.custom-marker.near{background:#e02020;border-color:#fff;transform:scale(1.4);box-shadow:0 3px 10px rgba(220,30,30,.5);}
-.leaflet-popup-content-wrapper{background:var(--bg) !important;border:1px solid var(--border2) !important;border-radius:4px !important;box-shadow:0 4px 20px rgba(120,80,30,.12) !important;color:var(--text) !important;}
-.leaflet-popup-tip{background:var(--bg) !important;}
+.custom-marker{width:22px;height:26px;cursor:pointer;transition:transform .15s;filter:drop-shadow(0 2px 3px rgba(0,0,0,.3));}
+.custom-marker:hover{transform:scale(1.5);}
+.custom-marker.near{transform:scale(1.6);filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));}
+.leaflet-popup-content-wrapper{background:#fff !important;border:1px solid rgba(0,0,0,.15) !important;border-radius:4px !important;box-shadow:0 4px 20px rgba(0,0,0,.12) !important;color:#111 !important;}
+.leaflet-popup-tip{background:#fff !important;}
 .leaflet-popup-content{font-family:var(--serif);font-size:14px;}
 .popup-name{font-size:15px;color:var(--cream);margin-bottom:4px;}
 .popup-pref{font-family:var(--mono);font-size:10px;color:var(--gold-dim);letter-spacing:.1em;}
-.popup-rating{color:var(--gold);font-size:12px;margin-top:6px;}
-.popup-walk{font-family:var(--mono);font-size:10px;color:#ff9966;margin-top:4px;}
+.popup-walk{font-family:var(--mono);font-size:10px;color:#555;margin-top:4px;}
 .popup-link{display:block;margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--gold-dim);text-decoration:none;letter-spacing:.1em;cursor:pointer;}
 .popup-link:hover{color:var(--gold);}
-/* Routing Machine のパネルを非表示 */
-.leaflet-routing-container{display:none !important;}
 
-/* SHOP GRID */
+/* SHOP LIST */
 #section-list{padding:0 0 2rem;}
-.shop-grid{max-width:1100px;margin:0 auto;padding:.5rem 2rem 0;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:6px;overflow:hidden;box-shadow:0 2px 16px rgba(120,80,30,.06);}
+.shop-grid{max-width:100%;margin:0 1rem;padding:0;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:6px;overflow:hidden;}
 .shop-card{background:var(--bg);border:none;cursor:pointer;transition:background .15s;text-align:left;display:flex;align-items:center;gap:0;border-bottom:1px solid var(--border);position:relative;min-height:48px;-webkit-tap-highlight-color:rgba(140,90,40,.1);}
 .shop-card:last-child{border-bottom:none;}
 .shop-card:hover{background:var(--bg2);}
@@ -130,37 +135,38 @@ nav a:hover{color:var(--gold);}
 .card-pref{font-family:var(--mono);font-size:9px;color:var(--text-dim);margin-top:1px;}
 .col-tags{flex:0 0 auto;display:flex;gap:4px;flex-wrap:nowrap;padding:0 8px;align-items:center;}
 .tag{font-family:var(--mono);font-size:8px;letter-spacing:.08em;padding:2px 6px;border-radius:2px;text-transform:uppercase;white-space:nowrap;}
-.tag-specialty{background:rgba(200,169,110,.12);color:var(--gold-dim);border:1px solid rgba(200,169,110,.2);}
-.tag-online{background:rgba(212,133,58,.10);color:#a06030;border:1px solid rgba(212,133,58,.2);}
-.tag-scaj{background:rgba(80,160,120,.10);color:#50a078;border:1px solid rgba(80,160,120,.2);}
-.tag-cafe{background:rgba(150,120,200,.10);color:#9070c0;border:1px solid rgba(150,120,200,.2);}
-.col-walk{flex:0 0 72px;text-align:right;font-family:var(--mono);font-size:10px;color:#ff9966;padding:0 14px 0 4px;white-space:nowrap;}
-.col-rating{display:none;}
+.tag-specialty{background:rgba(136,45,23,.10);color:#882D17;border:1px solid rgba(136,45,23,.25);}
+.tag-online{background:rgba(125,74,49,.10);color:#7D4A31;border:1px solid rgba(125,74,49,.25);}
+.tag-scaj{background:rgba(111,78,55,.10);color:#6F4E37;border:1px solid rgba(111,78,55,.25);}
+.tag-cafe{background:rgba(112,66,65,.10);color:#704241;border:1px solid rgba(112,66,65,.25);}
+.col-walk{flex:0 0 72px;text-align:right;font-family:var(--mono);font-size:10px;color:#555;padding:0 14px 0 4px;white-space:nowrap;}
 .shop-grid-header{display:flex;align-items:center;gap:0;padding:8px 0;border-bottom:1px solid var(--border2);background:var(--bg2);}
-.shop-grid-header .col-num,.shop-grid-header .col-name,.shop-grid-header .col-tags,.shop-grid-header .col-walk,.shop-grid-header .col-rating{font-family:var(--sans);font-size:9px;letter-spacing:.15em;color:var(--gold-dim);text-transform:uppercase;font-weight:600;}
+.shop-grid-header .col-num,.shop-grid-header .col-name,.shop-grid-header .col-tags,.shop-grid-header .col-walk{font-family:var(--sans);font-size:9px;letter-spacing:.15em;color:#7D4A31;text-transform:uppercase;font-weight:600;}
 .shop-grid-header .col-name{padding-left:4px;}
-
-/* LOAD MORE */
-.load-more-wrap{text-align:center;padding:1.2rem;}
+.load-more-wrap{text-align:center;padding:1rem;}
 .btn-load-more{background:transparent;border:1px solid var(--border2);color:var(--gold);font-family:var(--sans);font-size:11px;letter-spacing:.15em;text-transform:uppercase;padding:12px 32px;cursor:pointer;border-radius:4px;transition:all .2s;font-weight:600;}
-.btn-load-more:hover{background:var(--bg2);border-color:var(--gold);color:var(--gold);}
+.btn-load-more:hover{background:var(--bg2);border-color:#6F4E37;color:#6F4E37;}
 
 /* MODAL */
-.modal-overlay{position:fixed;inset:0;background:rgba(80,50,20,.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:1rem;opacity:0;pointer-events:none;transition:opacity .25s;}
+.modal-overlay{position:fixed;inset:0;background:rgba(61,32,16,.55);z-index:1000;display:flex;align-items:center;justify-content:center;padding:1rem;opacity:0;pointer-events:none;transition:opacity .25s;}
 .modal-overlay.open{opacity:1;pointer-events:all;}
-.modal{background:var(--bg);border:1px solid var(--border2);border-radius:8px;max-width:680px;width:100%;max-height:90vh;overflow-y:auto;position:relative;box-shadow:0 20px 60px rgba(100,70,30,.15);}
-.modal-close{position:sticky;top:0;float:right;background:var(--bg);border:none;color:var(--text-dim);font-size:20px;cursor:pointer;padding:1rem 1.2rem;line-height:1;z-index:10;}
+.modal{background:var(--bg);border:1px solid var(--border2);border-radius:8px;max-width:680px;width:100%;height:90vh;max-height:90vh;overflow:hidden;position:relative;box-shadow:0 20px 60px rgba(100,70,30,.15);display:flex;flex-direction:column;}
+#modal-inner{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;}
+.modal-scrollable{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:0;}
+.modal-footer{flex-shrink:0;padding:.8rem 1.5rem 1.2rem;border-top:1px solid var(--border);background:var(--bg);display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.modal-drag-bar{width:40px;height:4px;background:var(--border2);border-radius:2px;margin:.8rem auto .2rem;cursor:pointer;display:none;}
+.modal-close{position:absolute;top:.5rem;right:.8rem;background:transparent;border:none;color:var(--text-dim);font-size:18px;cursor:pointer;padding:.5rem;line-height:1;z-index:10;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:50%;}
 .modal-close:hover{color:var(--gold);}
 .modal-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:2px;}
 .modal-gallery img{width:100%;height:140px;object-fit:cover;display:block;}
-.modal-body{padding:1.6rem 2rem 2rem;}
+.modal-body{padding:1.6rem 2rem 1.5rem;}
 .modal-pref{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--gold-dim);text-transform:uppercase;margin-bottom:.5rem;}
 .modal-name{font-size:1.8rem;font-weight:300;color:var(--cream);line-height:1.2;margin-bottom:.4rem;}
 .modal-category{font-family:var(--mono);font-size:11px;color:var(--text-dim);margin-bottom:1.2rem;}
 .modal-rating{display:flex;align-items:center;gap:8px;margin-bottom:1rem;}
 .modal-stars{color:var(--gold);font-size:16px;}
 .modal-rating-num{font-family:var(--mono);font-size:13px;color:var(--text-dim);}
-.modal-walk{font-family:var(--mono);font-size:11px;color:#ff9966;margin-bottom:1rem;padding:6px 12px;border:1px solid rgba(255,153,102,.25);border-radius:3px;display:inline-block;}
+.modal-walk{font-family:var(--mono);font-size:11px;color:#555;margin-bottom:1rem;padding:6px 12px;border:1px solid rgba(111,78,55,.2);border-radius:3px;display:inline-block;}
 .modal-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.5rem;}
 .modal-info{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem;}
 @media(max-width:500px){.modal-info{grid-template-columns:1fr;}}
@@ -174,53 +180,50 @@ nav a:hover{color:var(--gold);}
 .hours-table tr.today td{color:var(--gold);}
 .chip-list{display:flex;flex-wrap:wrap;gap:5px;}
 .chip{font-family:var(--mono);font-size:9px;color:var(--text-dim);background:var(--bg3);padding:3px 9px;border-radius:10px;letter-spacing:.05em;border:1px solid var(--border);}
-.modal-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid var(--border);}
 .btn-action{font-family:var(--mono);font-size:11px;letter-spacing:.15em;text-transform:uppercase;padding:9px 20px;border-radius:3px;text-decoration:none;transition:all .2s;cursor:pointer;border:none;display:inline-block;}
-.btn-primary{background:var(--gold-dim);color:var(--bg);}
-.btn-primary:hover{background:var(--gold);}
+.btn-primary{background:#6F4E37;color:#fff;}
+.btn-primary:hover{background:#882D17;}
 .btn-secondary{background:transparent;color:var(--gold-dim);border:1px solid var(--border2);}
 .btn-secondary:hover{border-color:var(--gold);color:var(--gold);}
 
-/* FAVORITE & RATING */
-.modal-user-section{margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;}
-.btn-fav{background:none;border:1px solid var(--border2);color:var(--text-dim);font-size:18px;width:38px;height:38px;border-radius:50%;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-.btn-fav:hover{border-color:#e05080;color:#e05080;}
-.btn-fav.active{border-color:#e05080;color:#e05080;background:rgba(224,80,128,.08);}
-.btn-fav.disabled{opacity:.35;cursor:default;pointer-events:none;}
-.fav-label{font-family:var(--mono);font-size:10px;color:var(--text-dim);}
-.rating-section{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:1rem 1.2rem;margin-top:1rem;}
-.rating-title{font-family:var(--mono);font-size:10px;letter-spacing:.15em;color:var(--gold-dim);text-transform:uppercase;margin-bottom:.8rem;}
-.star-row{display:flex;gap:4px;margin-bottom:.8rem;}
-.star-btn{background:none;border:none;font-size:22px;cursor:pointer;color:var(--border2);transition:color .15s;padding:0;line-height:1;}
-.star-btn.active{color:var(--gold);}
-.star-btn:hover{color:var(--gold-dim);}
-.review-memo{width:100%;background:var(--bg);border:1px solid var(--border2);color:var(--text);font-family:var(--serif);font-size:13px;padding:8px 10px;border-radius:4px;outline:none;resize:vertical;min-height:70px;transition:border-color .2s;display:block;margin-bottom:.6rem;}
+/* お気に入り・個人評価 */
+.btn-fav{background:none;border:1px solid var(--border2);color:var(--text-dim);font-size:17px;width:36px;height:36px;border-radius:50%;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:auto;}
+.btn-fav:hover{border-color:#c04060;color:#c04060;}
+.btn-fav.active{border-color:#c04060;color:#c04060;background:rgba(192,64,96,.08);}
+.btn-fav.disabled{opacity:.3;cursor:default;pointer-events:none;}
+.rating-section{margin:.8rem 1.5rem 1rem;padding:1rem 1.2rem;background:var(--bg2);border:1px solid var(--border);border-radius:6px;}
+.rating-title{font-family:var(--mono);font-size:9px;letter-spacing:.2em;color:var(--gold-dim);text-transform:uppercase;margin-bottom:.7rem;}
+.star-row{display:flex;gap:3px;margin-bottom:.7rem;}
+.star-btn{background:none;border:none;font-size:20px;cursor:pointer;color:var(--border2);transition:color .1s;padding:0;line-height:1;}
+.star-btn.active{color:#6F4E37;}
+.star-btn:hover{color:#7D4A31;}
+.review-memo{width:100%;background:var(--bg);border:1px solid var(--border2);color:var(--text);font-family:var(--serif);font-size:13px;padding:7px 10px;border-radius:4px;outline:none;resize:vertical;min-height:60px;transition:border-color .2s;display:block;margin-bottom:.6rem;}
 .review-memo:focus{border-color:var(--gold-dim);}
-.btn-save-review{background:var(--gold-dim);color:#fff;border:none;font-family:var(--sans);font-size:11px;font-weight:600;padding:8px 20px;border-radius:4px;cursor:pointer;transition:opacity .2s;}
+.btn-save-review{background:#6F4E37;color:#fff;border:none;font-family:var(--sans);font-size:11px;font-weight:600;padding:7px 18px;border-radius:4px;cursor:pointer;transition:opacity .2s;}
 .btn-save-review:hover{opacity:.85;}
-.rating-login-msg{font-family:var(--sans);font-size:12px;color:var(--text-dim);}
+.rating-login-msg{font-family:var(--sans);font-size:11px;color:var(--text-dim);}
 .rating-login-msg a{color:var(--gold-dim);cursor:pointer;text-decoration:underline;}
 
-/* AUTH MODAL */
-.auth-overlay{position:fixed;inset:0;background:rgba(80,50,20,.5);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem;opacity:0;pointer-events:none;transition:opacity .25s;}
+/* 認証モーダル */
+.auth-overlay{position:fixed;inset:0;background:rgba(61,32,16,.55);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem;opacity:0;pointer-events:none;transition:opacity .25s;}
 .auth-overlay.open{opacity:1;pointer-events:all;}
-.auth-modal{background:var(--bg);border:1px solid var(--border2);border-radius:8px;max-width:360px;width:100%;padding:2rem;position:relative;box-shadow:0 20px 60px rgba(100,70,30,.15);}
+.auth-modal{background:var(--bg);border:1px solid var(--border2);border-radius:8px;max-width:360px;width:100%;padding:2rem;position:relative;box-shadow:0 20px 60px rgba(61,32,16,.2);}
 .auth-close{position:absolute;top:.8rem;right:.8rem;background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer;line-height:1;padding:.3rem .5rem;}
 .auth-close:hover{color:var(--gold);}
-.auth-title{font-family:var(--serif);font-size:1.3rem;color:var(--cream);margin-bottom:1.5rem;}
-.auth-input{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:var(--serif);font-size:14px;padding:9px 12px;border-radius:4px;outline:none;margin-bottom:.8rem;transition:border-color .2s;display:block;}
+.auth-title{font-family:var(--serif);font-size:1.3rem;color:var(--cream);margin-bottom:1.4rem;}
+.auth-input{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:var(--serif);font-size:14px;padding:9px 12px;border-radius:4px;outline:none;margin-bottom:.7rem;transition:border-color .2s;display:block;}
 .auth-input:focus{border-color:var(--gold-dim);}
-.btn-auth-submit{width:100%;background:var(--gold-dim);color:#fff;border:none;font-family:var(--sans);font-size:12px;font-weight:600;letter-spacing:.1em;padding:11px;border-radius:4px;cursor:pointer;transition:opacity .2s;margin-bottom:.6rem;}
+.btn-auth-submit{width:100%;background:#6F4E37;color:#fff;border:none;font-family:var(--sans);font-size:12px;font-weight:600;letter-spacing:.1em;padding:11px;border-radius:4px;cursor:pointer;transition:opacity .2s;margin-bottom:.6rem;}
 .btn-auth-submit:hover{opacity:.85;}
 .btn-google{width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:var(--sans);font-size:12px;padding:10px;border-radius:4px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px;}
 .btn-google:hover{border-color:var(--gold-dim);}
-.auth-sep{text-align:center;font-family:var(--mono);font-size:10px;color:var(--text-dim);margin:.8rem 0;}
-.auth-switch{text-align:center;font-family:var(--sans);font-size:11px;color:var(--text-dim);margin-top:1rem;}
+.auth-sep{text-align:center;font-family:var(--mono);font-size:10px;color:var(--text-dim);margin:.7rem 0;}
+.auth-switch{text-align:center;font-family:var(--sans);font-size:11px;color:var(--text-dim);margin-top:.9rem;}
 .auth-switch a{color:var(--gold-dim);cursor:pointer;text-decoration:underline;}
 .auth-error{font-family:var(--mono);font-size:11px;color:#c06040;margin-bottom:.6rem;display:none;}
 .auth-user-info{display:flex;align-items:center;gap:12px;margin-bottom:1.2rem;padding-bottom:1.2rem;border-bottom:1px solid var(--border);}
-.auth-avatar{width:40px;height:40px;border-radius:50%;border:2px solid var(--border2);object-fit:cover;}
-.auth-avatar-placeholder{width:40px;height:40px;border-radius:50%;background:var(--gold-dim);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;flex-shrink:0;}
+.auth-avatar-ph{width:40px;height:40px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;flex-shrink:0;}
+.auth-avatar{width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid var(--border2);}
 .auth-user-name{font-family:var(--serif);font-size:1rem;color:var(--cream);}
 .auth-user-email{font-family:var(--mono);font-size:11px;color:var(--text-dim);}
 .btn-logout{width:100%;background:transparent;border:1px solid var(--border2);color:var(--text-dim);font-family:var(--sans);font-size:11px;padding:10px;border-radius:4px;cursor:pointer;transition:all .2s;}
@@ -230,41 +233,27 @@ footer{border-top:1px solid var(--border);padding:1rem;text-align:center;font-fa
 footer a{color:var(--gold-dim);text-decoration:none;}
 footer a:hover{color:var(--gold);}
 
-/* ═══════════════════════════
-   スマホ対応 (max-width: 640px)
-═══════════════════════════ */
+/* ═══ スマホ (max-width: 640px) ═══ */
 @media (max-width: 640px) {
-  header { padding: 0 1rem; height: 50px; }
+  header { padding: 0 1rem; height: 52px; }
+  .header-sub { display: none; }
+  .header-count { display: none; }
+  .header-mobile-bar { display: flex; }
   .logo { font-size: 11px; letter-spacing: .15em; }
-  nav { gap: 1rem; }
+  nav { gap: .8rem; }
   nav a { font-size: 10px; letter-spacing: .08em; }
   .btn-login { font-size: 10px; padding: 4px 10px; }
-
-  .hero { padding: 2rem 1.2rem 1.5rem; }
-  .hero h1 { font-size: 2.2rem; }
-  .hero-sub { font-size: .9rem; }
-  .hero-stats { gap: 1.2rem; flex-wrap: wrap; justify-content: center; }
-  .hero-stats > div { min-width: 80px; text-align: center; }
-  .stat-num { font-size: 1.6rem; }
-
-  .search-section { padding: .6rem .8rem; top: 50px; }
+  .search-section { padding: .6rem .8rem; top: 86px; }
   .search-box input { font-size: 13px; }
-  .filter-select { font-size: 11px; }
   .result-count { font-size: 9px; }
-
   .location-bar { gap: 6px; margin-top: .6rem; }
   .btn-locate { font-size: 10px; padding: 6px 12px; }
   .addr-search { min-width: 0; width: 100%; }
-  .addr-input { font-size: 13px; padding: 7px 10px; }
+  .addr-input { font-size: 13px; }
   .btn-addr { font-size: 10px; padding: 6px 10px; }
-  .walk-filters { gap: 4px; flex-wrap: wrap; }
-  .btn-walk { font-size: 10px; padding: 4px 9px; }
   .location-status { font-size: 9px; }
-
-  .section-header { padding: 1.2rem 1rem .6rem; }
-  #map { height: 320px; }
-
-  .shop-grid { margin: 0 1rem; padding: .5rem 1rem 0; }
+  #map { height: 320px; min-height: 320px; }
+  .shop-grid { margin: 0 .5rem; }
   .col-num { flex: 0 0 28px; font-size: 9px; padding-left: 4px; }
   .col-name { padding: 10px 6px 10px 2px; }
   .card-name { font-size: .85rem; }
@@ -272,29 +261,24 @@ footer a:hover{color:var(--gold);}
   .col-tags { padding: 0 4px; gap: 3px; }
   .tag { font-size: 7px; padding: 2px 5px; }
   .col-walk { flex: 0 0 52px; font-size: 9px; padding: 0 6px 0 2px; }
-  .shop-grid-header { padding: 6px 0; }
-
   .load-more-wrap { padding: 1.5rem; }
   .btn-load-more { font-size: 10px; padding: 10px 24px; }
-
-  .modal-overlay { padding: .5rem; align-items: flex-end; }
-  .modal { max-height: 92vh; border-radius: 12px 12px 0 0; width: 100%; max-width: 100%; }
-  .modal-body { padding: 1.2rem 1.2rem 1.5rem; }
+  .modal-overlay { padding: 0; align-items: flex-start; flex-direction: column; }
+  .modal { height: 82vh; max-height: 82vh; border-radius: 0 0 16px 16px; width: 100%; max-width: 100%; margin: 0; }
+  .modal-overlay.open .modal-tap-close { flex: 1; min-height: 18vh; width: 100%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-family: var(--sans); font-size: 11px; letter-spacing: .1em; color: rgba(255,255,255,.6); }
+  .modal-overlay.open .modal-tap-close::before { content: '▲  タップして閉じる'; }
+  .modal-body { padding: 1rem; }
   .modal-name { font-size: 1.4rem; }
   .modal-info { grid-template-columns: 1fr; gap: 1rem; }
-  .modal-actions { gap: 8px; }
-  .btn-action { font-size: 10px; padding: 8px 14px; }
+  .modal-footer { padding: .7rem 1rem env(safe-area-inset-bottom, .5rem); gap: 6px; }
+  .modal-footer .btn-action { font-size: 11px; padding: 9px 14px; flex: 1; text-align: center; }
   .modal-gallery img { height: 110px; }
-
+  .modal-drag-bar { display: block; }
+  .rating-section { margin: .5rem 1rem .8rem; padding: .8rem 1rem; }
   footer { padding: 1.5rem 1rem; font-size: 10px; }
 }
-
-/* タブレット対応 (641px〜900px) */
 @media (min-width: 641px) and (max-width: 900px) {
-  .hero h1 { font-size: 3.2rem; }
-  .hero-stats { gap: 2rem; }
   #map { height: 400px; }
-  .shop-grid { margin: 0 1.2rem; }
   .modal-info { grid-template-columns: 1fr; }
   .addr-search { min-width: 180px; }
 }
@@ -303,81 +287,63 @@ footer a:hover{color:var(--gold);}
 <body>
 
 <header>
-  <div class="logo">roastia</div>
+  <div class="header-left">
+    <div class="logo">roastia</div>
+    <div class="header-sub">日本最大級の自家焙煎珈琲店データベース</div>
+    <div class="header-count"><span id="stat-total">—</span>店舗掲載中</div>
+  </div>
   <nav>
-    <a href="#section-map">地図</a>
-    <a href="#section-list">一覧</a>
     <button class="btn-login" id="btn-login" onclick="openAuthModal()">ログイン</button>
   </nav>
 </header>
-
-<section class="hero">
-  <p class="hero-eyebrow">roastia</p>
-  <h1>日本自家焙煎珈琲店<br><em>データベース</em></h1>
-  <p class="hero-sub">日本全国の自家焙煎珈琲店を、ひとつの地図に。<br>現在地・住所から徒歩圏内のロースターを探せる、<br>日本最大級の自家焙煎珈琲店データベース。</p>
-  <div class="hero-stats">
-    <div><span class="stat-num" id="stat-total">—</span><span class="stat-label">掲載店舗数</span></div>
-    <div><span class="stat-num">47</span><span class="stat-label">都道府県</span></div>
-  </div>
-</section>
+<div class="header-mobile-bar">
+  <span>日本最大級の自家焙煎珈琲店データベース</span>
+  <span><strong id="stat-total-mobile">—</strong>店舗掲載中</span>
+</div>
 
 <section class="search-section">
   <div class="search-wrap">
-    <div class="search-row1">
-      <div class="search-box">
-        <span class="search-icon">⌕</span>
-        <input type="text" id="search-input" placeholder="店舗名・住所・キーワードで検索…" oninput="filterShops()">
+    <div class="search-row2">
+      <button class="btn-locate" id="btn-locate" onclick="toggleLocate()">◎ 現在地</button>
+      <div class="addr-search">
+        <input class="addr-input" id="addr-input" type="text" placeholder="住所・駅名で検索… 例: 渋谷駅" onkeydown="if(event.key==='Enter')geocodeAddress()">
+        <button class="btn-addr" onclick="geocodeAddress()">この場所から探す</button>
       </div>
-      <select class="filter-select" id="pref-filter" onchange="filterShops()">
-        <option value="">全都道府県</option>
-      </select>
       <div class="cafe-radio">
         <label class="radio-label"><input type="radio" name="cafe" value="" checked onchange="setCafeFilter('')"> すべて</label>
         <label class="radio-label"><input type="radio" name="cafe" value="cafe" onchange="setCafeFilter('cafe')"> 座席あり</label>
         <label class="radio-label"><input type="radio" name="cafe" value="nocafe" onchange="setCafeFilter('nocafe')"> 座席なし</label>
       </div>
       <div class="result-count"><strong id="count-display">0</strong> 件表示中</div>
-    </div>
-    <div class="search-row2">
-      <button class="btn-locate" id="btn-locate" onclick="toggleLocate()">◎ 現在地</button>
-      <div class="addr-search">
-        <input class="addr-input" id="addr-input" type="text" placeholder="住所・駅名・スポット名で検索… 例: 渋谷駅" onkeydown="if(event.key==='Enter')geocodeAddress()">
-        <button class="btn-addr" onclick="geocodeAddress()">この場所から探す</button>
-      </div>
-      <div class="walk-filters" id="walk-filters">
-        <span class="walk-label">徒歩</span>
-        <button class="btn-walk" data-min="5"  onclick="setWalkFilter(5)">5分</button>
-        <button class="btn-walk" data-min="10" onclick="setWalkFilter(10)">10分</button>
-        <button class="btn-walk" data-min="15" onclick="setWalkFilter(15)">15分</button>
-        <button class="btn-walk" data-min="30" onclick="setWalkFilter(30)">30分</button>
-        <button class="btn-walk active" data-min="0" onclick="setWalkFilter(0)">全表示</button>
-      </div>
       <span class="location-status" id="location-status"></span>
     </div>
   </div>
 </section>
 
-<section id="section-map">
-  <div class="section-header">
-    <span class="section-tag">Map</span>
-    <span class="section-title">全国マップ</span>
-  </div>
-  <div id="map"></div>
-</section>
+<div class="map-list-wrap">
+  <section id="section-list">
+    <div class="section-header">
+      <span class="section-tag">Database</span>
+      <span class="section-title">店舗一覧</span>
+    </div>
+    <div class="shop-grid" id="shop-grid"></div>
+    <div class="load-more-wrap">
+      <button class="btn-load-more" id="load-more-btn" onclick="loadMore()">さらに読み込む</button>
+    </div>
+  </section>
 
-<section id="section-list">
-  <div class="section-header">
-    <span class="section-tag">Database</span>
-    <span class="section-title">店舗一覧</span>
-  </div>
-  <div class="shop-grid" id="shop-grid"></div>
-  <div class="load-more-wrap">
-    <button class="btn-load-more" id="load-more-btn" onclick="loadMore()">さらに読み込む</button>
-  </div>
-</section>
+  <section id="section-map">
+    <div class="section-header">
+      <span class="section-tag">Map</span>
+      <span class="section-title">全国マップ</span>
+      <span class="map-hint">地図をクリックしてその場所から検索</span>
+    </div>
+    <div id="map"></div>
+  </section>
+</div>
 
 <footer>
-  <p style="margin-bottom:.5rem">データソース: <a href="https://www.openstreetmap.org">OpenStreetMap</a> · <a href="https://scaj.org">SCAJ</a> · Google Maps</p>
+  <p>データソース: <a href="https://www.openstreetmap.org">OpenStreetMap</a> · <a href="https://scaj.org">SCAJ</a> · Google Maps</p>
 </footer>
 
 <!-- 店舗詳細モーダル -->
@@ -385,7 +351,9 @@ footer a:hover{color:var(--gold);}
   <div class="modal" id="modal-content">
     <button class="modal-close" onclick="closeModal()">✕</button>
     <div id="modal-inner"></div>
+    <div class="modal-drag-bar" onclick="closeModal()"></div>
   </div>
+  <div class="modal-tap-close" onclick="closeModal()"></div>
 </div>
 
 <!-- 認証モーダル -->
@@ -393,11 +361,11 @@ footer a:hover{color:var(--gold);}
   <div class="auth-modal">
     <button class="auth-close" onclick="closeAuthModal()">✕</button>
 
-    <!-- ログイン済み表示 -->
+    <!-- ログイン済み -->
     <div id="auth-view-loggedin" style="display:none">
       <div class="auth-title">アカウント</div>
       <div class="auth-user-info">
-        <div class="auth-avatar-placeholder" id="auth-avatar-placeholder">☕</div>
+        <div class="auth-avatar-ph" id="auth-avatar-ph">☕</div>
         <img class="auth-avatar" id="auth-avatar" src="" alt="" style="display:none">
         <div>
           <div class="auth-user-name" id="auth-display-name"></div>
@@ -419,10 +387,10 @@ footer a:hover{color:var(--gold);}
       <button class="btn-auth-submit" id="auth-submit-btn" onclick="doEmailAuth()">ログイン</button>
       <div class="auth-sep">または</div>
       <button class="btn-google" onclick="doGoogleLogin()">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg width="16" height="16" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
           <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
           <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66 2.84-.62z" fill="#FBBC05"/>
           <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
         </svg>
         Googleでログイン
@@ -436,15 +404,15 @@ footer a:hover{color:var(--gold);}
 </div>
 
 <script>
-/* ════════════════════════════════
+/* ════════════════════════
    Firebase
-════════════════════════════════ */
+════════════════════════ */
 const firebaseConfig = {
   apiKey: "AIzaSyDsyPuwfAxBsqXO0iVXcM6NoOiXVLcFb7Q",
   authDomain: "roastia-f9907.firebaseapp.com",
   projectId: "roastia-f9907",
   storageBucket: "roastia-f9907.firebasestorage.app",
-  messagingSenderId: "860378474786",
+  messagingSenderId: "860378474766",
   appId: "1:860378474766:web:dc83b21a2f48c6db644f5f"
 };
 firebase.initializeApp(firebaseConfig);
@@ -454,15 +422,17 @@ let currentUser = null;
 
 auth.onAuthStateChanged(user => {
   currentUser = user;
-  updateLoginBtn();
+  _updateLoginBtn();
+  // モーダルが開いていれば再ロード
+  if (_currentModalShopId !== null) loadModalUserData(_currentModalShopId);
 });
 
-function updateLoginBtn() {
+function _updateLoginBtn() {
   const btn = document.getElementById('btn-login');
   if (!btn) return;
   if (currentUser) {
     const name = currentUser.displayName || currentUser.email.split('@')[0];
-    btn.textContent = name.length > 10 ? name.slice(0, 10) + '…' : name;
+    btn.textContent = name.length > 10 ? name.slice(0,10)+'…' : name;
     btn.classList.add('logged-in');
   } else {
     btn.textContent = 'ログイン';
@@ -470,152 +440,120 @@ function updateLoginBtn() {
   }
 }
 
-/* ────── Auth Modal ────── */
+/* ── 認証モーダル ── */
 let _authMode = 'login';
 
 function openAuthModal() {
-  const overlay = document.getElementById('auth-overlay');
-  overlay.classList.add('open');
+  document.getElementById('auth-overlay').classList.add('open');
   document.body.style.overflow = 'hidden';
-  if (currentUser) {
-    _showLoggedInView();
-  } else {
-    _showAuthForm('login');
-  }
+  currentUser ? _showLoggedInView() : _showAuthForm('login');
 }
-
 function closeAuthModal(e) {
   if (e && e.target !== document.getElementById('auth-overlay')) return;
   document.getElementById('auth-overlay').classList.remove('open');
   document.body.style.overflow = '';
 }
-
 function _showLoggedInView() {
   document.getElementById('auth-view-form').style.display = 'none';
   document.getElementById('auth-view-loggedin').style.display = 'block';
-  const ph = document.getElementById('auth-avatar-placeholder');
+  const ph = document.getElementById('auth-avatar-ph');
   const img = document.getElementById('auth-avatar');
   if (currentUser.photoURL) {
-    img.src = currentUser.photoURL;
-    img.style.display = 'block';
-    ph.style.display = 'none';
-  } else {
-    ph.style.display = 'flex';
-    img.style.display = 'none';
-  }
+    img.src = currentUser.photoURL; img.style.display = 'block'; ph.style.display = 'none';
+  } else { ph.style.display = 'flex'; img.style.display = 'none'; }
   document.getElementById('auth-display-name').textContent = currentUser.displayName || '—';
   document.getElementById('auth-email-display').textContent = currentUser.email;
 }
-
 function _showAuthForm(mode) {
   document.getElementById('auth-view-loggedin').style.display = 'none';
   document.getElementById('auth-view-form').style.display = 'block';
   _authMode = mode;
   const isLogin = mode === 'login';
-  document.getElementById('auth-form-title').textContent = isLogin ? 'ログイン' : '新規登録';
-  document.getElementById('auth-submit-btn').textContent = isLogin ? 'ログイン' : '登録する';
-  document.getElementById('auth-name-row').style.display = isLogin ? 'none' : 'block';
+  document.getElementById('auth-form-title').textContent  = isLogin ? 'ログイン' : '新規登録';
+  document.getElementById('auth-submit-btn').textContent  = isLogin ? 'ログイン' : '登録する';
+  document.getElementById('auth-name-row').style.display  = isLogin ? 'none' : 'block';
   document.getElementById('auth-switch-text').textContent = isLogin ? 'アカウントをお持ちでない方は' : '既にアカウントをお持ちの方は';
   document.getElementById('auth-switch-link').textContent = isLogin ? '新規登録' : 'ログイン';
   document.getElementById('auth-error').style.display = 'none';
 }
-
-function toggleAuthMode() {
-  _showAuthForm(_authMode === 'login' ? 'register' : 'login');
-}
-
-function _showAuthError(msg) {
-  const el = document.getElementById('auth-error');
-  el.textContent = msg;
-  el.style.display = 'block';
-}
+function toggleAuthMode() { _showAuthForm(_authMode === 'login' ? 'register' : 'login'); }
 
 async function doEmailAuth() {
-  const email    = document.getElementById('auth-email').value.trim();
-  const password = document.getElementById('auth-password').value;
+  const email = document.getElementById('auth-email').value.trim();
+  const pass  = document.getElementById('auth-password').value;
   document.getElementById('auth-error').style.display = 'none';
-  if (!email || !password) { _showAuthError('メールとパスワードを入力してください'); return; }
+  if (!email || !pass) { _authErr('メールとパスワードを入力してください'); return; }
   const btn = document.getElementById('auth-submit-btn');
   btn.disabled = true;
   try {
     if (_authMode === 'register') {
       const name = document.getElementById('auth-name').value.trim();
-      const cred = await auth.createUserWithEmailAndPassword(email, password);
+      const cred = await auth.createUserWithEmailAndPassword(email, pass);
       if (name) await cred.user.updateProfile({ displayName: name });
     } else {
-      await auth.signInWithEmailAndPassword(email, password);
+      await auth.signInWithEmailAndPassword(email, pass);
     }
     document.getElementById('auth-overlay').classList.remove('open');
     document.body.style.overflow = '';
-    // モーダルが開いていればユーザーデータを再ロード
-    const shopId = _currentModalShopId;
-    if (shopId !== null) setTimeout(() => loadModalUserData(shopId), 500);
   } catch(e) {
     const msgs = {
-      'auth/email-already-in-use': 'このメールは既に登録されています',
-      'auth/invalid-email': 'メールアドレスの形式が正しくありません',
-      'auth/weak-password': 'パスワードは6文字以上にしてください',
-      'auth/user-not-found': 'このメールは登録されていません',
-      'auth/wrong-password': 'パスワードが正しくありません',
-      'auth/invalid-credential': 'メールまたはパスワードが正しくありません',
+      'auth/email-already-in-use':'このメールは既に登録されています',
+      'auth/invalid-email':'メールアドレスの形式が正しくありません',
+      'auth/weak-password':'パスワードは6文字以上にしてください',
+      'auth/user-not-found':'このメールは登録されていません',
+      'auth/wrong-password':'パスワードが正しくありません',
+      'auth/invalid-credential':'メールまたはパスワードが正しくありません',
     };
-    _showAuthError(msgs[e.code] || e.message);
+    _authErr(msgs[e.code] || e.message);
   } finally { btn.disabled = false; }
 }
-
 async function doGoogleLogin() {
   document.getElementById('auth-error').style.display = 'none';
   try {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    await auth.signInWithPopup(provider);
+    await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
     document.getElementById('auth-overlay').classList.remove('open');
     document.body.style.overflow = '';
-    const shopId = _currentModalShopId;
-    if (shopId !== null) setTimeout(() => loadModalUserData(shopId), 500);
-  } catch(e) {
-    _showAuthError('Googleログインに失敗しました。ポップアップがブロックされていないか確認してください。');
-  }
+  } catch(e) { _authErr('Googleログインに失敗しました'); }
 }
-
 async function doLogout() {
   await auth.signOut();
   document.getElementById('auth-overlay').classList.remove('open');
   document.body.style.overflow = '';
-  // モーダルのユーザーセクションをリセット
-  const shopId = _currentModalShopId;
-  if (shopId !== null) loadModalUserData(shopId);
+}
+function _authErr(msg) {
+  const el = document.getElementById('auth-error');
+  el.textContent = msg; el.style.display = 'block';
 }
 
-/* ════════════════════════════════
+/* ════════════════════════
    地図・データ
-════════════════════════════════ */
+════════════════════════ */
 const DATA_URL = 'shops.json';
 let ALL_SHOPS = [], filteredShops = [], displayedCount = 50;
 let map, markerGroup;
 
-/* ── 位置情報 ── */
 let myLat = null, myLng = null;
-let myMarker = null, walkCircle = null;
+let myMarker = null, walkCircle = null, routeControl = null;
 let walkMinutes = 0;
-let locMode = null; // 'gps' | 'addr'
+let locMode = null;
+let gpsLat = null, gpsLng = null;
 
 const WALK_SPEED = 80;
 function walkToMeters(min) { return min * WALK_SPEED; }
-function distanceMeters(lat1, lng1, lat2, lng2) {
-  const R = 6371000, dLat = (lat2 - lat1) * Math.PI / 180, dLng = (lng2 - lng1) * Math.PI / 180;
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+function distanceMeters(lat1,lng1,lat2,lng2) {
+  const R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLng=(lng2-lng1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
-function walkMinutesFromDist(m) { return Math.round(m / WALK_SPEED); }
+function walkMinutesFromDist(m) { return Math.round(m/WALK_SPEED); }
 
 function resetBase() {
   myLat = myLng = null; locMode = null;
-  if (myMarker) { map.removeLayer(myMarker); myMarker = null; }
-  if (walkCircle) { map.removeLayer(walkCircle); walkCircle = null; }
-  if (routingControl) { map.removeControl(routingControl); routingControl = null; }
+  if (myMarker) { map.removeLayer(myMarker); myMarker=null; }
+  if (walkCircle) { map.removeLayer(walkCircle); walkCircle=null; }
   document.getElementById('btn-locate').classList.remove('active');
   document.getElementById('btn-locate').textContent = '◎ 現在地';
-  document.getElementById('walk-filters').classList.remove('visible');
+  const wf = document.getElementById('walk-filters'); if(wf) wf.classList.remove('visible');
   document.getElementById('location-status').textContent = '';
   document.getElementById('location-status').className = 'location-status';
   walkMinutes = 0;
@@ -623,84 +561,82 @@ function resetBase() {
 }
 
 function toggleLocate() {
-  if (locMode === 'gps') { resetBase(); return; }
-  if (!navigator.geolocation) { setStatus('位置情報に対応していません', 'err'); return; }
-  setStatus('位置情報を取得中…', '');
+  if (gpsLat && gpsLng) {
+    myLat = gpsLat; myLng = gpsLng; locMode = 'gps';
+    map.setView([gpsLat, gpsLng], 14);
+    onLocated('現在地');
+    return;
+  }
+  if (!navigator.geolocation) { setStatus('位置情報に対応していません','err'); return; }
+  setStatus('位置情報を取得中…','');
   document.getElementById('btn-locate').textContent = '取得中...';
   navigator.geolocation.getCurrentPosition(
-    pos => { myLat = pos.coords.latitude; myLng = pos.coords.longitude; locMode = 'gps'; onLocated('現在地'); },
-    err => {
-      setStatus(err.code === 1 ? '許可が必要です' : '取得できませんでした', 'err');
+    pos => {
+      gpsLat = pos.coords.latitude; gpsLng = pos.coords.longitude;
+      myLat = gpsLat; myLng = gpsLng; locMode = 'gps';
+      map.setView([myLat, myLng], 14);
+      onLocated('現在地');
       document.getElementById('btn-locate').textContent = '◎ 現在地';
+      setStatus('','');
     },
-    { enableHighAccuracy: true, timeout: 10000 }
+    err => {
+      setStatus(err.code===1?'許可が必要です':'取得できませんでした','err');
+      document.getElementById('btn-locate').textContent='◎ 現在地';
+    },
+    { enableHighAccuracy:true, timeout:10000 }
   );
 }
 
 async function geocodeAddress() {
   const q = document.getElementById('addr-input').value.trim();
-  if (!q) { setStatus('住所を入力してください', 'err'); return; }
-  setStatus('検索中…', '');
+  if (!q) { setStatus('住所を入力してください','err'); return; }
+  setStatus('検索中…','');
   try {
     const url = 'https://nominatim.openstreetmap.org/search?q='
-      + encodeURIComponent(q + ' 日本') + '&format=json&limit=1&accept-language=ja';
-    const res = await fetch(url, { headers: { 'User-Agent': 'RoastJapan/1.0' } });
+      + encodeURIComponent(q+' 日本')+'&format=json&limit=1&accept-language=ja';
+    const res = await fetch(url, { headers:{'User-Agent':'RoastJapan/1.0'} });
     const data = await res.json();
-    if (!data.length) { setStatus('「' + q + '」が見つかりません', 'err'); return; }
-    myLat = parseFloat(data[0].lat);
-    myLng = parseFloat(data[0].lon);
-    const label = data[0].display_name.split(',')[0];
+    if (!data.length) { setStatus('「'+q+'」が見つかりません','err'); return; }
+    myLat = parseFloat(data[0].lat); myLng = parseFloat(data[0].lon);
     locMode = 'addr';
     document.getElementById('btn-locate').classList.remove('active');
-    onLocated(label);
-  } catch(e) { setStatus('ネットワークエラー', 'err'); }
+    onLocated(data[0].display_name.split(',')[0]);
+  } catch(e) { setStatus('ネットワークエラー','err'); }
 }
 
 function onLocated(label) {
-  if (myMarker) { map.removeLayer(myMarker); myMarker = null; }
-  const isGps = locMode === 'gps';
+  if (myMarker) { map.removeLayer(myMarker); myMarker=null; }
   const el = document.createElement('div');
   el.className = 'my-marker';
-  if (!isGps) el.style.cssText = 'background:#d4853a;box-shadow:0 0 0 3px rgba(212,133,58,.35);';
-  const icon = L.divIcon({ html: el, className: '', iconSize: [16, 16], iconAnchor: [8, 8] });
-  myMarker = L.marker([myLat, myLng], { icon, zIndexOffset: 1000 })
-    .bindPopup('<div class="popup-name" style="color:' + (isGps ? '#4a9eff' : '#d4853a') + '">📍 ' + label + '</div>')
+  if (locMode==='addr') el.style.cssText='background:#d4853a;box-shadow:0 0 0 3px rgba(212,133,58,.35);';
+  if (locMode==='map')  el.style.cssText='background:#2a9a5a;box-shadow:0 0 0 3px rgba(42,154,90,.35);';
+  const icon = L.divIcon({ html:el, className:'', iconSize:[16,16], iconAnchor:[8,8] });
+  myMarker = L.marker([myLat,myLng],{icon,zIndexOffset:1000})
+    .bindPopup('<div class="popup-name" style="color:'+(locMode==='gps'?'#4a9eff':'#d4853a')+'">📍 '+label+'</div>')
     .addTo(map);
-  map.setView([myLat, myLng], 14);
-  if (isGps) {
+  map.setView([myLat,myLng],14);
+  if (locMode==='gps') {
     document.getElementById('btn-locate').classList.add('active');
-    document.getElementById('btn-locate').textContent = '◎ 現在地表示中';
+    document.getElementById('btn-locate').textContent='◎ 現在地表示中';
+  } else {
+    document.getElementById('btn-locate').classList.remove('active');
+    document.getElementById('btn-locate').textContent='◎ 現在地';
   }
-  document.getElementById('walk-filters').classList.add('visible');
-  setStatus('📍 ' + label, 'ok');
-  setWalkFilter(15);
-}
-
-function setWalkFilter(min) {
-  walkMinutes = min;
-  document.querySelectorAll('.btn-walk').forEach(b => b.classList.toggle('active', parseInt(b.dataset.min) === min));
-  if (walkCircle) { map.removeLayer(walkCircle); walkCircle = null; }
-  if (myLat && min > 0) {
-    walkCircle = L.circle([myLat, myLng], {
-      radius: walkToMeters(min), color: '#c8a96e', fillColor: '#c8a96e',
-      fillOpacity: .06, weight: 1.5, dashArray: '4 4',
-    }).addTo(map);
-    map.fitBounds(walkCircle.getBounds(), { padding: [30, 30] });
-  }
+  const wf2 = document.getElementById('walk-filters'); if(wf2) wf2.classList.add('visible');
+  setStatus('📍 '+label,'ok');
   filterShops();
 }
 
-function setStatus(msg, type) {
-  const el = document.getElementById('location-status');
-  el.textContent = msg; el.className = 'location-status' + (type ? ' ' + type : '');
+function setStatus(msg,type) {
+  const el=document.getElementById('location-status');
+  el.textContent=msg; el.className='location-status'+(type?' '+type:'');
 }
 
-/* ── データ読み込み ── */
 async function loadShops() {
   document.getElementById('shop-grid').innerHTML =
-    '<div style="padding:3rem;text-align:center;color:var(--text-dim);font-family:var(--mono);font-size:12px;letter-spacing:.1em;grid-column:1/-1">LOADING...</div>';
+    '<div style="padding:3rem;text-align:center;color:var(--text-dim);font-family:var(--mono);font-size:12px;letter-spacing:.1em">LOADING...</div>';
   try {
-    const res = await fetch(DATA_URL);
+    const res = await fetch(DATA_URL, { cache:'default' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     ALL_SHOPS = await res.json();
     if (!ALL_SHOPS.length) throw new Error('空');
@@ -714,278 +650,244 @@ async function loadShops() {
 
 function initUI() {
   document.getElementById('stat-total').textContent = ALL_SHOPS.length.toLocaleString();
-  const prefs = [...new Set(ALL_SHOPS.map(s => s.pref).filter(Boolean))].sort();
-  const sel = document.getElementById('pref-filter');
-  sel.innerHTML = '<option value="">全都道府県</option>';
-  prefs.forEach(p => { const o = document.createElement('option'); o.value = p; o.textContent = p; sel.appendChild(o); });
+  const mob = document.getElementById('stat-total-mobile');
+  if (mob) mob.textContent = ALL_SHOPS.length.toLocaleString();
   updateMarkers(ALL_SHOPS);
-  renderCards();
+  filterShops();
 }
 
 function init() { initMap(); loadShops(); }
 
-/* ── 地図 ── */
 function initMap() {
-  map = L.map('map', { center: [36.2, 138.0], zoom: 5, zoomControl: true, attributionControl: false });
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(map);
-  // MarkerCluster（コーヒーカラー）
+  map = L.map('map', { center:[36.2,138.0], zoom:5, zoomControl:true, attributionControl:false });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:18 }).addTo(map);
   markerGroup = L.markerClusterGroup({
-    maxClusterRadius: 50,
-    iconCreateFunction: cluster => {
-      const count = cluster.getChildCount();
-      const size = count < 10 ? 32 : count < 50 ? 38 : 44;
-      return L.divIcon({
-        html: `<div style="
-          width:${size}px;height:${size}px;
-          background:#8b5e2a;color:#faf7f2;
-          border-radius:50%;border:2px solid #faf7f2;
-          display:flex;align-items:center;justify-content:center;
-          font-family:'DM Mono',monospace;font-size:${size < 36 ? 11 : 12}px;font-weight:600;
-          box-shadow:0 2px 8px rgba(100,60,20,.4);">${count}</div>`,
-        className: '',
-        iconSize: [size, size],
-        iconAnchor: [size / 2, size / 2],
-      });
-    }
+    maxClusterRadius: 40,
+    spiderfyOnMaxZoom: true,
+    showCoverageOnHover: false,
+    zoomToBoundsOnClick: true,
+    iconCreateFunction: cluster => L.divIcon({
+      html: `<div class="cluster-icon">${cluster.getChildCount()}</div>`,
+      className: '', iconSize:[36,36], iconAnchor:[18,18],
+    })
   }).addTo(map);
+
+  map.on('click', function(e) {
+    myLat = e.latlng.lat; myLng = e.latlng.lng; locMode = 'map';
+    onLocated('マップで選択した場所');
+  });
+
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        gpsLat = pos.coords.latitude; gpsLng = pos.coords.longitude;
+        myLat = gpsLat; myLng = gpsLng; locMode = 'gps';
+        map.setView([myLat, myLng], 13);
+        const el = document.createElement('div');
+        el.className = 'my-marker';
+        const icon = L.divIcon({ html:el, className:'', iconSize:[16,16], iconAnchor:[8,8] });
+        myMarker = L.marker([myLat,myLng],{icon,zIndexOffset:1000})
+          .bindPopup('<div class="popup-name" style="color:#4a9eff">📍 現在地</div>').addTo(map);
+        const wf2 = document.getElementById('walk-filters'); if(wf2) wf2.classList.add('visible');
+        setStatus('現在地を取得しました','ok');
+        if (ALL_SHOPS.length > 0) filterShops();
+      },
+      () => {}, { enableHighAccuracy:true, timeout:8000 }
+    );
+  }
 }
 
 function updateMarkers(shops) {
   markerGroup.clearLayers();
+  if (!shops.length) return;
   shops.forEach(shop => {
-    if (!shop.lat || !shop.lng) return;
-    const dist = myLat ? distanceMeters(myLat, myLng, shop.lat, shop.lng) : null;
+    const dist = (myLat && shop.lat && shop.lng) ? distanceMeters(myLat,myLng,shop.lat,shop.lng) : null;
     const walkMin = dist ? walkMinutesFromDist(dist) : null;
-    const isNear = dist && walkMinutes > 0 && dist <= walkToMeters(walkMinutes);
-
+    const isNear = dist && walkMinutes>0 && dist<=walkToMeters(walkMinutes);
     const el = document.createElement('div');
-    el.className = 'custom-marker' + (isNear ? ' near' : '');
-    const icon = L.divIcon({ html: el, className: '', iconSize: [14, 14], iconAnchor: [7, 7] });
-    const marker = L.marker([shop.lat, shop.lng], { icon });
-
+    el.className = 'custom-marker'+(isNear?' near':'');
+    el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="26" viewBox="0 0 260 230"><defs><clipPath id="bc"><ellipse cx="130" cy="115" rx="90" ry="105" transform="rotate(-5 130 115)"/></clipPath></defs><ellipse cx="130" cy="115" rx="90" ry="105" fill="#6F4E37" transform="rotate(-5 130 115)"/><path d="M160,18 C190,25 200,50 180,75 C160,100 120,120 100,150 C80,175 85,200 100,212 C75,210 60,185 75,155 C90,125 130,105 150,80 C170,55 165,28 145,20 Z" fill="#fff" clip-path="url(#bc)"/></svg>`;
+    const icon = L.divIcon({ html:el, className:'', iconSize:[22,26], iconAnchor:[11,13] });
+    const marker = L.marker([shop.lat,shop.lng],{icon});
     const walkHtml = walkMin ? `<div class="popup-walk">🚶 徒歩約${walkMin}分</div>` : '';
     marker.bindPopup(`
       <div class="popup-name">${shop.name}</div>
-      <div class="popup-pref">${shop.pref}${shop.city ? ' · ' + shop.city : ''}</div>
+      <div class="popup-pref">${shop.pref}${shop.city?' · '+shop.city:''}</div>
       ${walkHtml}
-      <div style="margin-top:6px">${(shop.tags || []).map(tagLabel).join(' ')}</div>
+      <div style="margin-top:6px">${(shop.tags||[]).map(tagLabel).join(' ')}</div>
+      ${myLat?`<span class="popup-link" onclick="showRoute(${shop.lat},${shop.lng})">🚶 ルートを表示</span>`:''}
       <span class="popup-link" onclick="openModal(${shop.id})">詳細を見る →</span>
-    `, { maxWidth: 260 });
+    `,{maxWidth:260});
+    marker._shopId = shop.id;
     markerGroup.addLayer(marker);
   });
 }
 
 function tagLabel(t) {
-  const m = { specialty: 'スペシャルティ', online: '通販あり', scaj: 'SCAJ会員', cafe: 'カフェ' };
-  const c = { specialty: 'tag-specialty', online: 'tag-online', scaj: 'tag-scaj', cafe: 'tag-cafe' };
-  return `<span class="tag ${c[t] || ''}">${m[t] || t}</span>`;
+  const m={specialty:'スペシャルティ',online:'通販あり',scaj:'SCAJ会員',cafe:'カフェ'};
+  const c={specialty:'tag-specialty',online:'tag-online',scaj:'tag-scaj',cafe:'tag-cafe'};
+  return `<span class="tag ${c[t]||''}">${m[t]||t}</span>`;
 }
 
-/* ── カード描画 ── */
 function renderCards() {
   const grid = document.getElementById('shop-grid');
   grid.innerHTML = '';
   const hdr = document.createElement('div');
   hdr.className = 'shop-grid-header';
-  hdr.innerHTML = `
-    <div class="col-num">#</div>
-    <div class="col-name">店舗名</div>
-    <div class="col-tags">種別</div>
-    <div class="col-walk">${myLat ? '徒歩' : ''}</div>`;
+  hdr.innerHTML = `<div class="col-num">#</div><div class="col-name">店舗名</div><div class="col-tags">種別</div><div class="col-walk">${myLat?'徒歩':''}</div>`;
   grid.appendChild(hdr);
-
   filteredShops.slice(0, displayedCount).forEach((shop, idx) => {
-    const dist = (myLat && shop.lat && shop.lng)
-      ? distanceMeters(myLat, myLng, shop.lat, shop.lng) : null;
+    const dist = (myLat && shop.lat && shop.lng) ? distanceMeters(myLat,myLng,shop.lat,shop.lng) : null;
     const walkMin = dist ? walkMinutesFromDist(dist) : null;
     const card = document.createElement('div');
     card.className = 'shop-card';
-    card.onclick = () => openModal(shop.id);
+    card.onclick = () => { focusShopOnMap(shop.id); openModal(shop.id); };
     card.innerHTML = `
-      <div class="col-num">${idx + 1}</div>
+      <div class="col-num">${idx+1}</div>
       <div class="col-name">
         <div class="card-name">${shop.name}</div>
-        <div class="card-pref">${shop.pref}${shop.city ? ' · ' + shop.city : ''}</div>
+        <div class="card-pref">${shop.pref}${shop.city?' · '+shop.city:''}</div>
       </div>
-      <div class="col-tags">${(shop.tags || []).map(tagLabel).join('')}</div>
-      <div class="col-walk">${walkMin ? '🚶' + walkMin + '分' : ''}</div>`;
+      <div class="col-tags">${(shop.tags||[]).map(tagLabel).join('')}</div>
+      <div class="col-walk">${walkMin?'🚶'+walkMin+'分':''}</div>`;
     grid.appendChild(card);
   });
-
-  document.getElementById('count-display').textContent = filteredShops.length;
-  document.getElementById('load-more-btn').style.display =
-    filteredShops.length > displayedCount ? 'inline-block' : 'none';
+  const countEl = document.getElementById('count-display');
+  countEl.textContent = myLat ? filteredShops.length+' (徒歩60分圏内)' : filteredShops.length;
+  document.getElementById('load-more-btn').style.display = filteredShops.length>displayedCount?'inline-block':'none';
 }
 
-/* ── フィルタリング ── */
 function filterShops() {
-  const q     = document.getElementById('search-input').value.toLowerCase();
-  const pref  = document.getElementById('pref-filter').value;
-  const style = window._cafeFilter === undefined ? '' : window._cafeFilter;
-
+  const style = window._cafeFilter || '';
+  const WALK_60 = walkToMeters(60);
+  updateMarkers(ALL_SHOPS);
   filteredShops = ALL_SHOPS.filter(s => {
-    const mQ = !q || s.name.toLowerCase().includes(q)
-                  || (s.address || '').toLowerCase().includes(q)
-                  || (s.city || '').includes(q)
-                  || (s.category || '').toLowerCase().includes(q);
-    const mP = !pref  || s.pref === pref;
-    const mS = !style
-      || (style === 'cafe'   && (s.tags || []).includes('cafe'))
-      || (style === 'nocafe' && !(s.tags || []).includes('cafe'));
-    const mW = !myLat || walkMinutes === 0 || (
-      s.lat && s.lng &&
-      distanceMeters(myLat, myLng, s.lat, s.lng) <= walkToMeters(walkMinutes)
-    );
-    return mQ && mP && mS && mW;
+    const mS = !style || (style==='cafe'&&(s.tags||[]).includes('cafe')) || (style==='nocafe'&&!(s.tags||[]).includes('cafe'));
+    const mW = !myLat || (s.lat&&s.lng&&distanceMeters(myLat,myLng,s.lat,s.lng)<=WALK_60);
+    return mS && mW;
   });
-
-  if (myLat) {
-    filteredShops.sort((a, b) =>
-      distanceMeters(myLat, myLng, a.lat, a.lng) - distanceMeters(myLat, myLng, b.lat, b.lng)
-    );
-  }
-
-  displayedCount = 12;
-  updateMarkers(filteredShops);
+  if (myLat) filteredShops.sort((a,b) => distanceMeters(myLat,myLng,a.lat,a.lng)-distanceMeters(myLat,myLng,b.lat,b.lng));
+  displayedCount = 50;
   renderCards();
-
-  if (filteredShops.length > 0 && !myLat) {
-    map.fitBounds(L.latLngBounds(filteredShops.map(s => [s.lat, s.lng])), { padding: [40, 40] });
-  }
 }
 
 function loadMore() { displayedCount += 50; renderCards(); }
 
-function setCafeFilter(val) {
-  window._cafeFilter = val;
-  displayedCount = 50;
-  filterShops();
+function showRoute(shopLat, shopLng) {
+  if (routeControl) { map.removeControl(routeControl); routeControl=null; }
+  if (!myLat || !myLng) return;
+  routeControl = L.Routing.control({
+    waypoints:[L.latLng(myLat,myLng),L.latLng(shopLat,shopLng)],
+    router: L.Routing.osrmv1({ serviceUrl:'https://router.project-osrm.org/route/v1', profile:'foot' }),
+    lineOptions:{ styles:[{color:'#882D17',weight:4,opacity:.8}] },
+    show:false, addWaypoints:false, routeWhileDragging:false, fitSelectedRoutes:true, showAlternatives:false,
+    createMarker:()=>null
+  }).addTo(map);
 }
 
-/* ═══════════════════════════════
+function focusShopOnMap(shopId) {
+  const shop = ALL_SHOPS.find(s=>s.id===shopId);
+  if (!shop||!shop.lat||!shop.lng) return;
+  if (myLat && myLng) showRoute(shop.lat, shop.lng);
+  else map.setView([shop.lat,shop.lng],16);
+  markerGroup.eachLayer(marker => {
+    if (marker._shopId===shopId) markerGroup.zoomToShowLayer(marker, ()=>marker.openPopup());
+  });
+}
+
+function setCafeFilter(val) { window._cafeFilter=val; displayedCount=50; filterShops(); }
+
+/* ════════════════════════
    モーダル
-═══════════════════════════════ */
+════════════════════════ */
 let _currentModalShopId = null;
 
 function openModal(id) {
-  const shop = ALL_SHOPS.find(s => s.id === id);
+  const shop = ALL_SHOPS.find(s=>s.id===id);
   if (!shop) return;
   _currentModalShopId = id;
 
-  const dist = (myLat && shop.lat && shop.lng)
-    ? distanceMeters(myLat, myLng, shop.lat, shop.lng) : null;
+  const dist = (myLat&&shop.lat&&shop.lng) ? distanceMeters(myLat,myLng,shop.lat,shop.lng) : null;
   const walkMin = dist ? walkMinutesFromDist(dist) : null;
-
-  const galleryHtml = (shop.photos && shop.photos.length)
-    ? `<div class="modal-gallery">${shop.photos.map(p =>
-        `<img src="${p}" alt="${shop.name}" loading="lazy" onerror="this.style.display='none'">`
-      ).join('')}</div>`
-    : '';
-
-  const stars = '★'.repeat(Math.round(shop.rating || 0)) + '☆'.repeat(5 - Math.round(shop.rating || 0));
+  const galleryHtml = (shop.photos&&shop.photos.length)
+    ? `<div class="modal-gallery">${shop.photos.map(p=>`<img src="${p}" alt="${shop.name}" loading="lazy" onerror="this.style.display='none'">`).join('')}</div>` : '';
+  const stars = '★'.repeat(Math.round(shop.rating||0))+'☆'.repeat(5-Math.round(shop.rating||0));
   const ratingHtml = shop.rating
-    ? `<div class="modal-rating"><span class="modal-stars">${stars}</span><span class="modal-rating-num">${shop.rating}${shop.reviews ? ' · ' + shop.reviews.toLocaleString() + '件のレビュー' : ''}</span></div>` : '';
-
-  const walkHtml = walkMin
-    ? `<div class="modal-walk">🚶 現在地から徒歩約${walkMin}分（直線距離 ${Math.round(dist)}m）</div>` : '';
-
-  const today = ['日', '月', '火', '水', '木', '金', '土'][new Date().getDay()];
+    ? `<div class="modal-rating"><span class="modal-stars">${stars}</span><span class="modal-rating-num">${shop.rating}${shop.reviews?' · '+shop.reviews.toLocaleString()+'件のレビュー':''}</span></div>` : '';
+  const walkHtml = walkMin ? `<div class="modal-walk">🚶 現在地から徒歩約${walkMin}分（直線距離 ${Math.round(dist)}m）</div>` : '';
+  const today = ['日','月','火','水','木','金','土'][new Date().getDay()];
   let hoursHtml = '';
   if (shop.hours && Object.keys(shop.hours).length) {
-    hoursHtml = `<table class="hours-table">${Object.entries(shop.hours).map(([d, t]) =>
-      `<tr class="${d.includes(today) ? 'today' : ''}"><td>${d}</td><td>${t}</td></tr>`
-    ).join('')}</table>`;
+    hoursHtml = `<table class="hours-table">${Object.entries(shop.hours).map(([d,t])=>`<tr class="${d.includes(today)?'today':''}"><td>${d}</td><td>${t}</td></tr>`).join('')}</table>`;
   }
-
-  const payHtml = (shop.payment && shop.payment.length)
-    ? `<div class="chip-list">${shop.payment.map(p => `<span class="chip">${p}</span>`).join('')}</div>`
+  const payHtml = (shop.payment&&shop.payment.length)
+    ? `<div class="chip-list">${shop.payment.map(p=>`<span class="chip">${p}</span>`).join('')}</div>`
     : '<span style="color:var(--text-dim);font-size:.85rem">情報なし</span>';
-
-  const svcHtml = (shop.services && shop.services.length)
-    ? `<div class="chip-list">${shop.services.map(s => `<span class="chip">${s}</span>`).join('')}</div>`
+  const svcHtml = (shop.services&&shop.services.length)
+    ? `<div class="chip-list">${shop.services.map(s=>`<span class="chip">${s}</span>`).join('')}</div>`
     : '<span style="color:var(--text-dim);font-size:.85rem">情報なし</span>';
-
-  const mapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(shop.name + ' ' + shop.address)}`;
-
-  // ルートボタン: 基点があればLeaflet Routing Machine、なければGoogle Maps
-  const routeBtn = myLat
-    ? `<button class="btn-action btn-secondary" onclick="showRoute(${shop.lat},${shop.lng})">🗺 ルート表示</button>`
-    : `<a class="btn-action btn-secondary" href="${mapsUrl}" target="_blank">Google Maps</a>`;
-
-  const btnHtml = [
+  const mapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(shop.name+' '+shop.address)}`;
+  const dirUrl  = myLat ? `https://www.google.com/maps/dir/${myLat},${myLng}/${shop.lat},${shop.lng}` : mapsUrl;
+  const footerBtnHtml = [
     shop.website ? `<a class="btn-action btn-primary" href="${shop.website}" target="_blank">ウェブサイト</a>` : '',
-    routeBtn,
-    shop.instagram ? `<a class="btn-action btn-secondary" href="https://instagram.com/${shop.instagram.replace('@', '')}" target="_blank">Instagram</a>` : '',
-    shop.phone ? `<a class="btn-action btn-secondary" href="tel:${shop.phone}">${shop.phone}</a>` : '',
+    `<a class="btn-action btn-secondary" href="${dirUrl}" target="_blank">${myLat?'ルート案内':'Google Maps'}</a>`,
+    shop.instagram ? `<a class="btn-action btn-secondary" href="https://instagram.com/${shop.instagram.replace('@','')}" target="_blank">Instagram</a>` : '',
+    shop.phone ? `<a class="btn-action btn-secondary" href="tel:${shop.phone}">📞 電話</a>` : '',
   ].filter(Boolean).join('');
 
   document.getElementById('modal-inner').innerHTML = `
-    ${galleryHtml}
-    <div class="modal-body">
-      <div class="modal-pref">${shop.pref}${shop.city ? ' · ' + shop.city : ''}</div>
-      <div class="modal-name">${shop.name}</div>
-      ${shop.category ? `<div class="modal-category">${shop.category}</div>` : ''}
-      ${ratingHtml}
-      ${walkHtml}
-      <div class="modal-tags">${(shop.tags || []).map(tagLabel).join('')}</div>
-      <div class="modal-info">
-        <div class="info-block">
-          <div class="info-label">住所</div>
-          <div class="info-value">${shop.address || '—'}</div>
-        </div>
-        <div class="info-block">
-          <div class="info-label">電話番号</div>
-          <div class="info-value">${shop.phone ? `<a href="tel:${shop.phone}">${shop.phone}</a>` : '—'}</div>
-        </div>
-        <div class="info-block">
-          <div class="info-label">営業時間</div>
-          <div class="info-value">${hoursHtml || '—'}</div>
-        </div>
-        <div class="info-block">
-          <div class="info-label">支払方法</div>
-          <div class="info-value">${payHtml}</div>
-        </div>
-        <div class="info-block" style="grid-column:1/-1">
-          <div class="info-label">サービス</div>
-          <div class="info-value">${svcHtml}</div>
+    <div class="modal-scrollable">
+      ${galleryHtml}
+      <div class="modal-body">
+        <div class="modal-pref">${shop.pref}${shop.city?' · '+shop.city:''}</div>
+        <div class="modal-name">${shop.name}</div>
+        ${shop.category?`<div class="modal-category">${shop.category}</div>`:''}
+        ${ratingHtml}${walkHtml}
+        <div class="modal-tags">${(shop.tags||[]).map(tagLabel).join('')}</div>
+        <div class="modal-info">
+          <div class="info-block"><div class="info-label">住所</div><div class="info-value">${shop.address||'—'}</div></div>
+          <div class="info-block"><div class="info-label">電話番号</div><div class="info-value">${shop.phone?`<a href="tel:${shop.phone}">${shop.phone}</a>`:'—'}</div></div>
+          <div class="info-block"><div class="info-label">営業時間</div><div class="info-value">${hoursHtml||'—'}</div></div>
+          <div class="info-block"><div class="info-label">支払方法</div><div class="info-value">${payHtml}</div></div>
+          <div class="info-block" style="grid-column:1/-1"><div class="info-label">サービス</div><div class="info-value">${svcHtml}</div></div>
         </div>
       </div>
-      <div class="modal-actions">${btnHtml}</div>
-
-      <!-- お気に入り -->
-      <div class="modal-user-section">
-        <button class="btn-fav disabled" id="modal-fav-btn" onclick="toggleFavorite(${shop.id})">♡</button>
-        <span class="fav-label">お気に入り</span>
-      </div>
-
-      <!-- 個人評価 -->
+      <!-- 個人評価セクション -->
       <div class="rating-section" id="rating-section">
         <div class="rating-title">あなたの評価</div>
-        <div class="rating-login-msg">
-          <a onclick="closeModal();openAuthModal()">ログイン</a>するとお気に入り登録・個人評価ができます
-        </div>
+        <div class="rating-login-msg"><a onclick="closeModal();openAuthModal()">ログイン</a>するとお気に入り登録・個人評価ができます</div>
       </div>
+    </div>
+    <div class="modal-footer">
+      ${footerBtnHtml}
+      <button class="btn-fav disabled" id="modal-fav-btn" onclick="toggleFavorite(${shop.id})" title="お気に入り">♡</button>
     </div>`;
 
   document.getElementById('modal-overlay').classList.add('open');
   document.body.style.overflow = 'hidden';
-
-  // Firebaseからユーザーデータを非同期ロード
-  loadModalUserData(shop.id);
+  loadModalUserData(id);
 }
 
 function closeModal(e) {
-  if (e && e.target !== document.getElementById('modal-overlay') && !e.target.classList.contains('modal-close')) return;
+  if (e) {
+    const modal = document.getElementById('modal-content');
+    const inside = modal && modal.contains(e.target);
+    const isCloseBtn = e.target.classList.contains('modal-close') || e.target.classList.contains('modal-drag-bar');
+    const isTapClose = e.target.classList.contains('modal-tap-close');
+    const isOverlay  = e.target === document.getElementById('modal-overlay');
+    if (inside && !isCloseBtn) return;
+    if (!inside && !isTapClose && !isOverlay) return;
+  }
   document.getElementById('modal-overlay').classList.remove('open');
   document.body.style.overflow = '';
   _currentModalShopId = null;
 }
 
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); closeAuthModal(); } });
+document.addEventListener('keydown', e => { if (e.key==='Escape') { closeModal(); closeAuthModal(); } });
 
-/* ═══════════════════════════════
-   お気に入り・個人評価（Firestore）
-═══════════════════════════════ */
+/* ════════════════════════
+   お気に入り・個人評価
+════════════════════════ */
 async function loadModalUserData(shopId) {
   const favBtn = document.getElementById('modal-fav-btn');
   const ratingSection = document.getElementById('rating-section');
@@ -993,155 +895,79 @@ async function loadModalUserData(shopId) {
 
   if (!currentUser) {
     favBtn.classList.add('disabled');
-    ratingSection.innerHTML = `
-      <div class="rating-title">あなたの評価</div>
-      <div class="rating-login-msg">
-        <a onclick="closeModal();openAuthModal()">ログイン</a>するとお気に入り登録・個人評価ができます
-      </div>`;
+    ratingSection.innerHTML = `<div class="rating-title">あなたの評価</div>
+      <div class="rating-login-msg"><a onclick="closeModal();openAuthModal()">ログイン</a>するとお気に入り登録・個人評価ができます</div>`;
     return;
   }
-
   favBtn.classList.remove('disabled');
 
-  // お気に入り状態
   try {
-    const favDoc = await db.collection('users').doc(currentUser.uid)
-      .collection('favorites').doc(String(shopId)).get();
-    if (favDoc.exists) {
-      favBtn.textContent = '♥';
-      favBtn.classList.add('active');
-    } else {
-      favBtn.textContent = '♡';
-      favBtn.classList.remove('active');
-    }
-  } catch(e) { console.warn('fav load error', e); }
+    const favDoc = await db.collection('users').doc(currentUser.uid).collection('favorites').doc(String(shopId)).get();
+    if (favDoc.exists) { favBtn.textContent='♥'; favBtn.classList.add('active'); }
+    else               { favBtn.textContent='♡'; favBtn.classList.remove('active'); }
+  } catch(e) { console.warn('fav load', e); }
 
-  // 個人評価
   try {
-    const revDoc = await db.collection('users').doc(currentUser.uid)
-      .collection('reviews').doc(String(shopId)).get();
-    const rev = revDoc.exists ? revDoc.data() : { rating: 0, memo: '' };
-    _renderRatingSection(shopId, rev.rating || 0, rev.memo || '');
-  } catch(e) {
-    _renderRatingSection(shopId, 0, '');
-  }
+    const revDoc = await db.collection('users').doc(currentUser.uid).collection('reviews').doc(String(shopId)).get();
+    const rev = revDoc.exists ? revDoc.data() : { rating:0, memo:'' };
+    _renderRatingSection(shopId, rev.rating||0, rev.memo||'');
+  } catch(e) { _renderRatingSection(shopId, 0, ''); }
 }
+
+let _currentRating = 0;
 
 function _renderRatingSection(shopId, rating, memo) {
   const section = document.getElementById('rating-section');
   if (!section) return;
-  const starsHtml = [1, 2, 3, 4, 5].map(i =>
-    `<button class="star-btn${i <= rating ? ' active' : ''}" data-star="${i}" onclick="_hoverStars(${i})"
-      onmouseenter="_hoverStars(${i})" onmouseleave="_restoreStars()"
-      onclick="setStarRating(${shopId}, ${i})">★</button>`
+  _currentRating = rating;
+  const starsHtml = [1,2,3,4,5].map(i =>
+    `<button class="star-btn${i<=rating?' active':''}" onclick="setStarRating(${i})"
+      onmouseenter="_hoverStars(${i})" onmouseleave="_restoreStars()">★</button>`
   ).join('');
   section.innerHTML = `
     <div class="rating-title">あなたの評価</div>
     <div class="star-row" id="star-row">${starsHtml}</div>
     <textarea class="review-memo" id="review-memo" placeholder="メモ（自分だけに見えます）">${memo}</textarea>
     <button class="btn-save-review" onclick="saveReview(${shopId})">保存</button>`;
-  _savedRating = rating;
-  _currentRating = rating;
 }
-
-let _savedRating = 0, _currentRating = 0;
 
 function _hoverStars(n) {
-  document.querySelectorAll('#star-row .star-btn').forEach((b, i) => {
-    b.classList.toggle('active', i < n);
-  });
+  document.querySelectorAll('#star-row .star-btn').forEach((b,i) => b.classList.toggle('active', i<n));
 }
 function _restoreStars() {
-  document.querySelectorAll('#star-row .star-btn').forEach((b, i) => {
-    b.classList.toggle('active', i < _currentRating);
-  });
+  document.querySelectorAll('#star-row .star-btn').forEach((b,i) => b.classList.toggle('active', i<_currentRating));
 }
-
-function setStarRating(shopId, star) {
-  _currentRating = star;
-  document.querySelectorAll('#star-row .star-btn').forEach((b, i) => {
-    b.classList.toggle('active', i < star);
-  });
+function setStarRating(n) {
+  _currentRating = n;
+  document.querySelectorAll('#star-row .star-btn').forEach((b,i) => b.classList.toggle('active', i<n));
 }
 
 async function saveReview(shopId) {
   if (!currentUser) { openAuthModal(); return; }
-  const memo = (document.getElementById('review-memo')?.value || '').trim();
+  const memo = (document.getElementById('review-memo')?.value||'').trim();
   try {
-    await db.collection('users').doc(currentUser.uid)
-      .collection('reviews').doc(String(shopId)).set({
-        rating: _currentRating,
-        memo,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-    _savedRating = _currentRating;
+    await db.collection('users').doc(currentUser.uid).collection('reviews').doc(String(shopId)).set({
+      rating: _currentRating, memo, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
     const btn = document.querySelector('.btn-save-review');
-    if (btn) {
-      btn.textContent = '✓ 保存しました';
-      btn.style.background = '#50a078';
-      setTimeout(() => { if (btn) { btn.textContent = '保存'; btn.style.background = ''; } }, 2000);
-    }
-  } catch(e) { console.error('save review error', e); }
+    if (btn) { btn.textContent='✓ 保存しました'; btn.style.background='#50a078'; setTimeout(()=>{ if(btn){btn.textContent='保存';btn.style.background='';} },2000); }
+  } catch(e) { console.error('save review', e); }
 }
 
 async function toggleFavorite(shopId) {
   if (!currentUser) { openAuthModal(); return; }
   const favBtn = document.getElementById('modal-fav-btn');
-  const ref = db.collection('users').doc(currentUser.uid)
-    .collection('favorites').doc(String(shopId));
+  const ref = db.collection('users').doc(currentUser.uid).collection('favorites').doc(String(shopId));
   try {
     const doc = await ref.get();
-    if (doc.exists) {
-      await ref.delete();
-      if (favBtn) { favBtn.textContent = '♡'; favBtn.classList.remove('active'); }
-    } else {
-      await ref.set({ shopId, addedAt: firebase.firestore.FieldValue.serverTimestamp() });
-      if (favBtn) { favBtn.textContent = '♥'; favBtn.classList.add('active'); }
-    }
-  } catch(e) { console.error('toggle fav error', e); }
-}
-
-/* ═══════════════════════════════
-   ルート表示（Leaflet Routing Machine）
-═══════════════════════════════ */
-let routingControl = null;
-
-function showRoute(toLat, toLng) {
-  if (!myLat) return;
-  closeModal();
-  if (routingControl) { map.removeControl(routingControl); routingControl = null; }
-  routingControl = L.Routing.control({
-    waypoints: [
-      L.latLng(myLat, myLng),
-      L.latLng(toLat, toLng)
-    ],
-    router: L.Routing.osrmv1({
-      serviceUrl: 'https://router.project-osrm.org/route/v1',
-      profile: 'foot',
-    }),
-    routeWhileDragging: false,
-    show: false,
-    addWaypoints: false,
-    draggableWaypoints: false,
-    fitSelectedRoutes: true,
-    lineOptions: {
-      styles: [
-        { color: '#8b5e2a', opacity: 0.15, weight: 9 },
-        { color: '#c8a96e', opacity: 0.9,  weight: 5 }
-      ],
-      extendToWaypoints: true,
-      missingRouteTolerance: 0
-    },
-    createMarker: () => null,
-  }).addTo(map);
-  document.getElementById('section-map').scrollIntoView({ behavior: 'smooth' });
+    if (doc.exists) { await ref.delete(); if(favBtn){favBtn.textContent='♡';favBtn.classList.remove('active');} }
+    else { await ref.set({shopId, addedAt:firebase.firestore.FieldValue.serverTimestamp()}); if(favBtn){favBtn.textContent='♥';favBtn.classList.add('active');} }
+  } catch(e) { console.error('toggle fav', e); }
 }
 
 /* ── フォールバック ── */
 const FALLBACK = [
-  {id:1,name:"猿田彦珈琲 本店",pref:"東京都",city:"渋谷区",address:"東京都渋谷区神宮前4-1-20",lat:35.669,lng:139.709,rating:4.2,reviews:843,tags:["specialty","cafe","online"],website:"https://www.sarutahikocoffee.com",category:"コーヒーショップ",hours:{"月曜日":"8:00〜22:00","火曜日":"8:00〜22:00","水曜日":"8:00〜22:00","木曜日":"8:00〜22:00","金曜日":"8:00〜22:00","土曜日":"9:00〜21:00","日曜日":"9:00〜21:00"},payment:["クレジットカード","PayPay","現金"],services:["テイクアウト","イートイン"],photos:[]},
-  {id:2,name:"丸山珈琲 小諸本店",pref:"長野県",city:"小諸市",address:"長野県小諸市古城2-1-25",lat:36.325,lng:138.428,rating:4.6,reviews:1204,tags:["specialty","online","scaj"],website:"https://www.maruyamacoffee.com",category:"自家焙煎珈琲店",hours:{},payment:["現金","クレジットカード"],services:["テイクアウト","通販"],photos:[]},
-  {id:3,name:"REC COFFEE 薬院本店",pref:"福岡県",city:"福岡市中央区",address:"福岡県福岡市中央区薬院1-6-40",lat:33.579,lng:130.398,rating:4.4,reviews:1102,tags:["specialty","cafe","online","scaj"],website:"https://rec-coffee.com",category:"カフェ",hours:{},payment:["クレジットカード"],services:["テイクアウト","イートイン","通販"],photos:[]},
+  {id:1,name:"サンプル店舗",pref:"東京都",city:"渋谷区",address:"",lat:35.669,lng:139.709,rating:null,reviews:0,tags:["cafe"],website:"",phone:"",instagram:"",category:"",hours:{},photos:[],payment:[],services:[],status:"active"}
 ];
 
 document.addEventListener('DOMContentLoaded', init);
