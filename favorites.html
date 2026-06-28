@@ -7,6 +7,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Josefin+Sans:wght@300;400;600&family=DM+Mono:wght@300;400&display=swap');
 :root {
@@ -312,11 +313,15 @@ function renderRevPanel(shops, reviews, uid) {
 }
 
 function makeRevCard(shop, rev, uid) {
-  const myRating = rev.rating || 0;
-  const myMemo   = rev.memo   || '';
-  const myStars  = '★'.repeat(myRating)+'☆'.repeat(5-myRating);
-  const tagHtml  = makeTagHtml(shop.tags);
-  const photo    = makePhotoHtml(shop);
+  const myRating  = rev.rating   || 0;
+  const myMemo    = rev.memo     || '';
+  const myPhotoUrl = rev.photoUrl || '';
+  const myStars   = '★'.repeat(myRating)+'☆'.repeat(5-myRating);
+  const tagHtml   = makeTagHtml(shop.tags);
+  // マイ写真があればそちらを優先表示
+  const photo = myPhotoUrl
+    ? `<img class="card-photo" src="${myPhotoUrl}" alt="${escHtml(shop.name)}" loading="lazy" onerror="this.outerHTML='<div class=card-photo-placeholder>☕</div>'">`
+    : makePhotoHtml(shop);
   const memoHtml = myMemo ? `<div class="card-memo">${escHtml(myMemo)}</div>` : '';
 
   const card = document.createElement('div');

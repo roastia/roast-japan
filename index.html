@@ -15,6 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Josefin+Sans:wght@300;400;600&family=DM+Mono:wght@300;400&display=swap');
 :root {
@@ -203,6 +204,17 @@ nav a:hover{color:var(--gold);}
 .btn-save-review:hover{opacity:.85;}
 .rating-login-msg{font-family:var(--sans);font-size:11px;color:var(--text-dim);}
 .rating-login-msg a{color:var(--gold-dim);cursor:pointer;text-decoration:underline;}
+/* マイ写真 */
+.my-photo-section{margin-bottom:.8rem;}
+.my-photo-label{font-family:var(--mono);font-size:9px;letter-spacing:.15em;color:var(--gold-dim);text-transform:uppercase;margin-bottom:.5rem;}
+.my-photo-preview{position:relative;display:inline-block;}
+.my-photo-preview img{width:100%;max-height:180px;object-fit:cover;border-radius:4px;display:block;border:1px solid var(--border);}
+.btn-delete-photo{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.55);color:#fff;border:none;font-size:12px;width:24px;height:24px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s;}
+.btn-delete-photo:hover{background:rgba(192,64,96,.9);}
+.btn-upload-photo{display:inline-flex;align-items:center;gap:6px;background:var(--bg3);border:1px dashed var(--border2);color:var(--text-dim);font-family:var(--sans);font-size:11px;padding:8px 14px;border-radius:4px;cursor:pointer;transition:all .2s;}
+.btn-upload-photo:hover{border-color:var(--gold-dim);color:var(--gold-dim);}
+.btn-upload-photo input{display:none;}
+.photo-uploading{font-family:var(--mono);font-size:10px;color:var(--text-dim);padding:8px 0;}
 
 /* 認証モーダル */
 .auth-overlay{position:fixed;inset:0;background:rgba(61,32,16,.55);z-index:2000;display:flex;align-items:center;justify-content:center;padding:1rem;opacity:0;pointer-events:none;transition:opacity .25s;}
@@ -418,7 +430,8 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
-const db   = firebase.firestore();
+const db      = firebase.firestore();
+const storage = firebase.storage();
 let currentUser = null;
 
 auth.onAuthStateChanged(user => {
@@ -913,14 +926,14 @@ async function loadModalUserData(shopId) {
 
   try {
     const revDoc = await db.collection('users').doc(currentUser.uid).collection('reviews').doc(String(shopId)).get();
-    const rev = revDoc.exists ? revDoc.data() : { rating:0, memo:'' };
-    _renderRatingSection(shopId, rev.rating||0, rev.memo||'');
-  } catch(e) { _renderRatingSection(shopId, 0, ''); }
+    const rev = revDoc.exists ? revDoc.data() : { rating:0, memo:'', photoUrl:'' };
+    _renderRatingSection(shopId, rev.rating||0, rev.memo||'', rev.photoUrl||'');
+  } catch(e) { _renderRatingSection(shopId, 0, '', ''); }
 }
 
 let _currentRating = 0;
 
-function _renderRatingSection(shopId, rating, memo) {
+function _renderRatingSection(shopId, rating, memo, photoUrl) {
   const section = document.getElementById('rating-section');
   if (!section) return;
   _currentRating = rating;
@@ -928,11 +941,71 @@ function _renderRatingSection(shopId, rating, memo) {
     `<button class="star-btn${i<=rating?' active':''}" onclick="setStarRating(${i})"
       onmouseenter="_hoverStars(${i})" onmouseleave="_restoreStars()">★</button>`
   ).join('');
+  const photoHtml = photoUrl
+    ? `<div class="my-photo-preview">
+        <img src="${photoUrl}" alt="マイ写真">
+        <button class="btn-delete-photo" onclick="deleteMyPhoto(${shopId})" title="写真を削除">✕</button>
+       </div>`
+    : `<label class="btn-upload-photo">
+        📷 写真をアップロード（1枚）
+        <input type="file" accept="image/*" onchange="uploadMyPhoto(this,${shopId})">
+       </label>`;
   section.innerHTML = `
     <div class="rating-title">あなたの評価</div>
+    <div class="my-photo-section">
+      <div class="my-photo-label">マイ写真</div>
+      <div id="my-photo-wrap">${photoHtml}</div>
+    </div>
     <div class="star-row" id="star-row">${starsHtml}</div>
     <textarea class="review-memo" id="review-memo" placeholder="メモ（自分だけに見えます）">${memo}</textarea>
     <button class="btn-save-review" onclick="saveReview(${shopId})">保存</button>`;
+}
+
+async function uploadMyPhoto(input, shopId) {
+  if (!currentUser || !input.files[0]) return;
+  const file = input.files[0];
+  if (file.size > 10 * 1024 * 1024) { alert('10MB以下の画像を選択してください'); return; }
+  const wrap = document.getElementById('my-photo-wrap');
+  if (wrap) wrap.innerHTML = '<div class="photo-uploading">アップロード中...</div>';
+  try {
+    const ref = storage.ref(`users/${currentUser.uid}/shop-photos/${shopId}`);
+    await ref.put(file, { contentType: file.type });
+    const url = await ref.getDownloadURL();
+    await db.collection('users').doc(currentUser.uid).collection('reviews').doc(String(shopId)).set(
+      { photoUrl: url, updatedAt: firebase.firestore.FieldValue.serverTimestamp() },
+      { merge: true }
+    );
+    if (wrap) wrap.innerHTML = `
+      <div class="my-photo-preview">
+        <img src="${url}" alt="マイ写真">
+        <button class="btn-delete-photo" onclick="deleteMyPhoto(${shopId})" title="写真を削除">✕</button>
+      </div>`;
+  } catch(e) {
+    console.error('upload photo', e);
+    if (wrap) wrap.innerHTML = `<div class="photo-uploading" style="color:#c06040">アップロード失敗</div>`;
+  }
+}
+
+async function deleteMyPhoto(shopId) {
+  if (!currentUser || !confirm('写真を削除しますか？')) return;
+  const wrap = document.getElementById('my-photo-wrap');
+  if (wrap) wrap.innerHTML = '<div class="photo-uploading">削除中...</div>';
+  try {
+    const ref = storage.ref(`users/${currentUser.uid}/shop-photos/${shopId}`);
+    await ref.delete().catch(() => {});
+    await db.collection('users').doc(currentUser.uid).collection('reviews').doc(String(shopId)).set(
+      { photoUrl: firebase.firestore.FieldValue.delete(), updatedAt: firebase.firestore.FieldValue.serverTimestamp() },
+      { merge: true }
+    );
+    if (wrap) wrap.innerHTML = `
+      <label class="btn-upload-photo">
+        📷 写真をアップロード（1枚）
+        <input type="file" accept="image/*" onchange="uploadMyPhoto(this,${shopId})">
+      </label>`;
+  } catch(e) {
+    console.error('delete photo', e);
+    if (wrap) wrap.innerHTML = '<div class="photo-uploading" style="color:#c06040">削除失敗</div>';
+  }
 }
 
 function _hoverStars(n) {
