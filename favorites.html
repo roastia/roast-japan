@@ -218,7 +218,7 @@ auth.onAuthStateChanged(async user => {
     renderRevPanel(revShops, reviews, user.uid);
 
   } catch(e) {
-    content.innerHTML = `<div class="loading" style="color:#c06040">読み込みに失敗しました。再読み込みしてください。</div>`;
+    content.innerHTML = `<div class="loading" style="color:#c06040">読み込みに失敗しました。<br><span style="font-size:10px">${e.code || ''} ${e.message || String(e)}</span></div>`;
     console.error(e);
   }
 });
