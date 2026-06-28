@@ -430,8 +430,9 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
-const db      = firebase.firestore();
-const storage = firebase.storage();
+const db = firebase.firestore();
+let storage = null;
+try { storage = firebase.storage(); } catch(e) { console.warn('Firebase Storage not available:', e); }
 let currentUser = null;
 
 auth.onAuthStateChanged(user => {
@@ -963,26 +964,52 @@ function _renderRatingSection(shopId, rating, memo, photoUrl) {
 
 async function uploadMyPhoto(input, shopId) {
   if (!currentUser || !input.files[0]) return;
+  if (!storage) {
+    alert('Firebase Storageが有効化されていません。Firebase ConsoleでStorageを有効化してください。');
+    return;
+  }
   const file = input.files[0];
   if (file.size > 10 * 1024 * 1024) { alert('10MB以下の画像を選択してください'); return; }
+
+  // ① まずローカルプレビューを即座に表示
+  const localUrl = URL.createObjectURL(file);
   const wrap = document.getElementById('my-photo-wrap');
-  if (wrap) wrap.innerHTML = '<div class="photo-uploading">アップロード中...</div>';
+  if (wrap) wrap.innerHTML = `
+    <div class="my-photo-preview">
+      <img src="${localUrl}" alt="マイ写真">
+      <div class="photo-uploading" style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.45);color:#fff;text-align:center;font-size:10px;padding:3px;">アップロード中...</div>
+      <button class="btn-delete-photo" style="opacity:.4;pointer-events:none">✕</button>
+    </div>`;
+
+  // ② バックグラウンドでFirebase Storageにアップロード
   try {
     const ref = storage.ref(`users/${currentUser.uid}/shop-photos/${shopId}`);
-    await ref.put(file, { contentType: file.type });
-    const url = await ref.getDownloadURL();
+    const snapshot = await ref.put(file, { contentType: file.type });
+    const url = await snapshot.ref.getDownloadURL();
     await db.collection('users').doc(currentUser.uid).collection('reviews').doc(String(shopId)).set(
       { photoUrl: url, updatedAt: firebase.firestore.FieldValue.serverTimestamp() },
       { merge: true }
     );
-    if (wrap) wrap.innerHTML = `
+    // ③ 完了したらFirebase URLに差し替え
+    const w = document.getElementById('my-photo-wrap');
+    if (w) w.innerHTML = `
       <div class="my-photo-preview">
         <img src="${url}" alt="マイ写真">
         <button class="btn-delete-photo" onclick="deleteMyPhoto(${shopId})" title="写真を削除">✕</button>
       </div>`;
+    URL.revokeObjectURL(localUrl);
   } catch(e) {
     console.error('upload photo', e);
-    if (wrap) wrap.innerHTML = `<div class="photo-uploading" style="color:#c06040">アップロード失敗</div>`;
+    const w = document.getElementById('my-photo-wrap');
+    if (w) w.innerHTML = `
+      <div style="margin-bottom:.5rem">
+        <img src="${localUrl}" alt="プレビュー" style="width:100%;max-height:140px;object-fit:cover;border-radius:4px;opacity:.5;border:1px solid var(--border)">
+      </div>
+      <div class="photo-uploading" style="color:#c06040">アップロード失敗（Storageのルール設定を確認してください）</div>
+      <label class="btn-upload-photo" style="margin-top:.5rem">
+        再試行
+        <input type="file" accept="image/*" onchange="uploadMyPhoto(this,${shopId})">
+      </label>`;
   }
 }
 
