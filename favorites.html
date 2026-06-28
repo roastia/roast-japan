@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>お気に入り - roastia</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Josefin+Sans:wght@300;400;600&family=DM+Mono:wght@300;400&display=swap');
+:root {
+  --bg:#faf7f4; --bg2:#f0e8df; --bg3:#e6ddd3;
+  --border:rgba(111,78,55,0.15); --border2:rgba(111,78,55,0.30);
+  --gold:#6F4E37; --gold-dim:#7D4A31;
+  --cream:#3d2010; --text:#3d2010; --text-dim:#8a6650;
+  --accent:#882D17;
+  --mono:'DM Mono',monospace; --serif:'Playfair Display',Georgia,serif; --sans:'Josefin Sans',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--serif);font-size:16px;line-height:1.7;min-height:100vh;}
+
+header{position:sticky;top:0;z-index:100;background:var(--bg);border-bottom:1px solid var(--border);padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:52px;box-shadow:0 1px 8px rgba(0,0,0,.06);}
+.logo{font-size:13px;letter-spacing:.25em;font-family:var(--sans);font-weight:600;color:var(--gold);text-transform:uppercase;text-decoration:none;}
+nav{display:flex;gap:1.2rem;align-items:center;}
+nav a{font-family:var(--sans);font-size:11px;letter-spacing:.15em;color:var(--text-dim);text-decoration:none;text-transform:uppercase;transition:color .2s;}
+nav a:hover{color:var(--gold);}
+.btn-logout{background:transparent;border:1px solid var(--border2);color:var(--text-dim);font-family:var(--sans);font-size:11px;padding:5px 14px;border-radius:4px;cursor:pointer;transition:all .2s;}
+.btn-logout:hover{border-color:var(--gold);color:var(--gold);}
+
+.page-wrap{max-width:900px;margin:0 auto;padding:2rem 1.5rem;}
+.page-title{font-family:var(--serif);font-size:1.8rem;font-weight:400;color:var(--cream);margin-bottom:.3rem;}
+.page-sub{font-family:var(--mono);font-size:11px;color:var(--text-dim);margin-bottom:2rem;}
+.page-sub strong{color:var(--gold);}
+
+/* ログインしていない場合 */
+.login-prompt{text-align:center;padding:5rem 2rem;}
+.login-prompt-title{font-family:var(--serif);font-size:1.4rem;color:var(--cream);margin-bottom:.8rem;}
+.login-prompt-sub{font-family:var(--sans);font-size:13px;color:var(--text-dim);margin-bottom:2rem;}
+.btn-go-login{display:inline-block;background:#6F4E37;color:#fff;font-family:var(--sans);font-size:12px;font-weight:600;letter-spacing:.1em;padding:12px 32px;border-radius:4px;text-decoration:none;transition:opacity .2s;}
+.btn-go-login:hover{opacity:.85;}
+
+/* ローディング */
+.loading{text-align:center;padding:4rem;font-family:var(--mono);font-size:12px;color:var(--text-dim);letter-spacing:.1em;}
+
+/* 空状態 */
+.empty-state{text-align:center;padding:5rem 2rem;}
+.empty-icon{font-size:48px;margin-bottom:1rem;opacity:.4;}
+.empty-title{font-family:var(--serif);font-size:1.3rem;color:var(--cream);margin-bottom:.6rem;}
+.empty-sub{font-family:var(--sans);font-size:13px;color:var(--text-dim);margin-bottom:2rem;}
+.btn-go-map{display:inline-block;background:#6F4E37;color:#fff;font-family:var(--sans);font-size:12px;font-weight:600;letter-spacing:.1em;padding:12px 32px;border-radius:4px;text-decoration:none;transition:opacity .2s;}
+.btn-go-map:hover{opacity:.85;}
+
+/* 店舗グリッド */
+.shops-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;}
+.shop-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;overflow:hidden;cursor:pointer;transition:all .2s;position:relative;}
+.shop-card:hover{border-color:var(--border2);box-shadow:0 4px 16px rgba(111,78,55,.1);transform:translateY(-2px);}
+.card-photo{width:100%;height:130px;object-fit:cover;display:block;background:var(--bg3);}
+.card-photo-placeholder{width:100%;height:130px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:32px;opacity:.3;}
+.card-body{padding:1rem;}
+.card-pref{font-family:var(--mono);font-size:9px;letter-spacing:.2em;color:var(--gold-dim);text-transform:uppercase;margin-bottom:.3rem;}
+.card-name{font-family:var(--serif);font-size:1.05rem;font-weight:600;color:var(--cream);line-height:1.3;margin-bottom:.5rem;}
+.card-tags{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:.6rem;}
+.tag{font-family:var(--mono);font-size:8px;letter-spacing:.08em;padding:2px 7px;border-radius:2px;text-transform:uppercase;}
+.tag-specialty{background:rgba(136,45,23,.10);color:#882D17;border:1px solid rgba(136,45,23,.25);}
+.tag-online{background:rgba(125,74,49,.10);color:#7D4A31;border:1px solid rgba(125,74,49,.25);}
+.tag-scaj{background:rgba(111,78,55,.10);color:#6F4E37;border:1px solid rgba(111,78,55,.25);}
+.tag-cafe{background:rgba(112,66,65,.10);color:#704241;border:1px solid rgba(112,66,65,.25);}
+.card-rating{font-family:var(--mono);font-size:10px;color:var(--text-dim);}
+.card-rating .stars{color:#6F4E37;}
+.card-my-rating{font-family:var(--mono);font-size:10px;color:var(--text-dim);margin-top:4px;}
+.card-my-rating .my-stars{color:#882D17;}
+.card-memo{font-family:var(--serif);font-size:12px;color:var(--text-dim);margin-top:6px;line-height:1.5;border-top:1px solid var(--border);padding-top:6px;white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.btn-unfav{position:absolute;top:8px;right:8px;background:rgba(255,255,255,.9);border:1px solid rgba(192,64,96,.3);color:#c04060;font-size:14px;width:30px;height:30px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;backdrop-filter:blur(4px);}
+.btn-unfav:hover{background:#c04060;color:#fff;border-color:#c04060;}
+
+footer{border-top:1px solid var(--border);padding:1rem;text-align:center;font-family:var(--sans);font-size:11px;color:var(--text-dim);margin-top:3rem;}
+footer a{color:var(--gold-dim);text-decoration:none;}
+footer a:hover{color:var(--gold);}
+
+@media(max-width:640px){
+  .page-wrap{padding:1.5rem 1rem;}
+  .page-title{font-size:1.4rem;}
+  .shops-grid{grid-template-columns:1fr 1fr;gap:8px;}
+  .card-body{padding:.8rem;}
+  .card-name{font-size:.9rem;}
+}
+@media(max-width:400px){
+  .shops-grid{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <a class="logo" href="index.html">roastia</a>
+  <nav>
+    <a href="index.html">← マップに戻る</a>
+    <span id="user-name" style="font-family:var(--mono);font-size:11px;color:var(--text-dim);"></span>
+    <button class="btn-logout" id="btn-logout" style="display:none" onclick="doLogout()">ログアウト</button>
+  </nav>
+</header>
+
+<div class="page-wrap">
+  <div id="main-content">
+    <div class="loading">LOADING...</div>
+  </div>
+</div>
+
+<footer>
+  <a href="index.html">roastia</a> — 日本最大級の自家焙煎珈琲店データベース
+</footer>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDsyPuwfAxBsqXO0iVXcM6NoOiXVLcFb7Q",
+  authDomain: "roastia-f9907.firebaseapp.com",
+  projectId: "roastia-f9907",
+  storageBucket: "roastia-f9907.firebasestorage.app",
+  messagingSenderId: "860378474766",
+  appId: "1:860378474766:web:dc83b21a2f48c6db644f5f"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+
+let allShops = [];
+
+async function loadShopsJson() {
+  try {
+    const res = await fetch('shops.json', { cache: 'default' });
+    allShops = await res.json();
+  } catch(e) { allShops = []; }
+}
+
+auth.onAuthStateChanged(async user => {
+  const content = document.getElementById('main-content');
+  const logoutBtn = document.getElementById('btn-logout');
+  const userNameEl = document.getElementById('user-name');
+
+  if (!user) {
+    content.innerHTML = `
+      <div class="login-prompt">
+        <div class="login-prompt-title">ログインが必要です</div>
+        <div class="login-prompt-sub">お気に入りを見るにはログインしてください</div>
+        <a class="btn-go-login" href="index.html">ログインページへ</a>
+      </div>`;
+    return;
+  }
+
+  logoutBtn.style.display = 'inline-block';
+  const name = user.displayName || user.email.split('@')[0];
+  userNameEl.textContent = name.length > 14 ? name.slice(0,14)+'…' : name;
+
+  content.innerHTML = '<div class="loading">お気に入りを読み込み中...</div>';
+
+  await loadShopsJson();
+
+  try {
+    const [favsSnap, revsSnap] = await Promise.all([
+      db.collection('users').doc(user.uid).collection('favorites').get(),
+      db.collection('users').doc(user.uid).collection('reviews').get(),
+    ]);
+
+    const favIds = new Set(favsSnap.docs.map(d => String(d.id)));
+    const reviews = {};
+    revsSnap.docs.forEach(d => { reviews[String(d.id)] = d.data(); });
+
+    const favShops = allShops.filter(s => favIds.has(String(s.id)));
+
+    if (!favShops.length) {
+      content.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">♡</div>
+          <div class="empty-title">お気に入りはまだありません</div>
+          <div class="empty-sub">店舗詳細の ♡ ボタンでお気に入り登録できます</div>
+          <a class="btn-go-map" href="index.html">店舗を探す</a>
+        </div>`;
+      return;
+    }
+
+    const countText = `<strong>${favShops.length}</strong> 件のお気に入り`;
+    content.innerHTML = `
+      <h1 class="page-title">お気に入り</h1>
+      <p class="page-sub">${countText}</p>
+      <div class="shops-grid" id="shops-grid"></div>`;
+
+    const grid = document.getElementById('shops-grid');
+    favShops.forEach(shop => {
+      const rev = reviews[String(shop.id)] || {};
+      const myRating = rev.rating || 0;
+      const myMemo   = rev.memo   || '';
+      const stars = '★'.repeat(Math.round(shop.rating||0)) + '☆'.repeat(5-Math.round(shop.rating||0));
+      const myStars = myRating ? '★'.repeat(myRating) + '☆'.repeat(5-myRating) : '';
+      const tagHtml = (shop.tags||[]).map(t => {
+        const labels = {specialty:'スペシャルティ',online:'通販あり',scaj:'SCAJ',cafe:'カフェ'};
+        return `<span class="tag tag-${t}">${labels[t]||t}</span>`;
+      }).join('');
+      const photo = (shop.photos && shop.photos[0])
+        ? `<img class="card-photo" src="${shop.photos[0]}" alt="${shop.name}" loading="lazy" onerror="this.outerHTML='<div class=card-photo-placeholder>☕</div>'">`
+        : '<div class="card-photo-placeholder">☕</div>';
+      const ratingHtml = shop.rating
+        ? `<div class="card-rating"><span class="stars">${stars}</span> ${shop.rating}${shop.reviews?' ('+shop.reviews.toLocaleString()+'件)':''}</div>` : '';
+      const myRatingHtml = myRating
+        ? `<div class="card-my-rating">自分の評価: <span class="my-stars">${myStars}</span></div>` : '';
+      const memoHtml = myMemo
+        ? `<div class="card-memo">${escHtml(myMemo)}</div>` : '';
+
+      const card = document.createElement('div');
+      card.className = 'shop-card';
+      card.innerHTML = `
+        ${photo}
+        <button class="btn-unfav" onclick="removeFav(event,${shop.id})" title="お気に入りから削除">♥</button>
+        <div class="card-body">
+          <div class="card-pref">${shop.pref}${shop.city?' · '+shop.city:''}</div>
+          <div class="card-name">${escHtml(shop.name)}</div>
+          <div class="card-tags">${tagHtml}</div>
+          ${ratingHtml}${myRatingHtml}${memoHtml}
+        </div>`;
+      card.addEventListener('click', () => {
+        window.location.href = `index.html#shop-${shop.id}`;
+      });
+      grid.appendChild(card);
+    });
+  } catch(e) {
+    content.innerHTML = `<div class="loading" style="color:#c06040">読み込みに失敗しました。再読み込みしてください。</div>`;
+    console.error(e);
+  }
+});
+
+async function removeFav(e, shopId) {
+  e.stopPropagation();
+  const user = auth.currentUser;
+  if (!user) return;
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  try {
+    await db.collection('users').doc(user.uid).collection('favorites').doc(String(shopId)).delete();
+    const card = btn.closest('.shop-card');
+    card.style.transition = 'opacity .3s, transform .3s';
+    card.style.opacity = '0';
+    card.style.transform = 'scale(.95)';
+    setTimeout(() => {
+      card.remove();
+      const grid = document.getElementById('shops-grid');
+      const remaining = grid ? grid.querySelectorAll('.shop-card').length : 0;
+      const sub = document.querySelector('.page-sub');
+      if (sub) sub.innerHTML = `<strong>${remaining}</strong> 件のお気に入り`;
+      if (!remaining) {
+        document.getElementById('main-content').innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">♡</div>
+            <div class="empty-title">お気に入りはまだありません</div>
+            <div class="empty-sub">店舗詳細の ♡ ボタンでお気に入り登録できます</div>
+            <a class="btn-go-map" href="index.html">店舗を探す</a>
+          </div>`;
+      }
+    }, 300);
+  } catch(e2) { btn.disabled = false; console.error(e2); }
+}
+
+async function doLogout() {
+  await auth.signOut();
+  location.reload();
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

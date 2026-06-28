@@ -293,6 +293,7 @@ footer a:hover{color:var(--gold);}
     <div class="header-count"><span id="stat-total">—</span>店舗掲載中</div>
   </div>
   <nav>
+    <a href="favorites.html" id="nav-fav" style="display:none">♡ お気に入り</a>
     <button class="btn-login" id="btn-login" onclick="openAuthModal()">ログイン</button>
   </nav>
 </header>
@@ -429,14 +430,17 @@ auth.onAuthStateChanged(user => {
 
 function _updateLoginBtn() {
   const btn = document.getElementById('btn-login');
+  const favLink = document.getElementById('nav-fav');
   if (!btn) return;
   if (currentUser) {
     const name = currentUser.displayName || currentUser.email.split('@')[0];
     btn.textContent = name.length > 10 ? name.slice(0,10)+'…' : name;
     btn.classList.add('logged-in');
+    if (favLink) favLink.style.display = 'inline';
   } else {
     btn.textContent = 'ログイン';
     btn.classList.remove('logged-in');
+    if (favLink) favLink.style.display = 'none';
   }
 }
 
