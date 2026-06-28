@@ -190,7 +190,7 @@ nav a:hover{color:var(--gold);}
 .btn-fav{background:none;border:1px solid var(--border2);color:var(--text-dim);font-size:17px;width:36px;height:36px;border-radius:50%;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:auto;}
 .btn-fav:hover{border-color:#c04060;color:#c04060;}
 .btn-fav.active{border-color:#c04060;color:#c04060;background:rgba(192,64,96,.08);}
-.btn-fav.disabled{opacity:.3;cursor:default;pointer-events:none;}
+.btn-fav.disabled{opacity:.5;cursor:pointer;}
 .rating-section{margin:.8rem 1.5rem 1rem;padding:1rem 1.2rem;background:var(--bg2);border:1px solid var(--border);border-radius:6px;}
 .rating-title{font-family:var(--mono);font-size:9px;letter-spacing:.2em;color:var(--gold-dim);text-transform:uppercase;margin-bottom:.7rem;}
 .star-row{display:flex;gap:3px;margin-bottom:.7rem;}
@@ -1064,12 +1064,23 @@ async function saveReview(shopId) {
 async function toggleFavorite(shopId) {
   if (!currentUser) { openAuthModal(); return; }
   const favBtn = document.getElementById('modal-fav-btn');
+  if (favBtn) { favBtn.style.opacity = '.4'; favBtn.style.pointerEvents = 'none'; }
   const ref = db.collection('users').doc(currentUser.uid).collection('favorites').doc(String(shopId));
   try {
     const doc = await ref.get();
-    if (doc.exists) { await ref.delete(); if(favBtn){favBtn.textContent='♡';favBtn.classList.remove('active');} }
-    else { await ref.set({shopId, addedAt:firebase.firestore.FieldValue.serverTimestamp()}); if(favBtn){favBtn.textContent='♥';favBtn.classList.add('active');} }
-  } catch(e) { console.error('toggle fav', e); }
+    if (doc.exists) {
+      await ref.delete();
+      if (favBtn) { favBtn.textContent='♡'; favBtn.classList.remove('active'); }
+    } else {
+      await ref.set({ shopId, addedAt: firebase.firestore.FieldValue.serverTimestamp() });
+      if (favBtn) { favBtn.textContent='♥'; favBtn.classList.add('active'); }
+    }
+  } catch(e) {
+    console.error('toggle fav', e);
+    alert('お気に入りの保存に失敗しました: ' + (e.code || e.message));
+  } finally {
+    if (favBtn) { favBtn.style.opacity = ''; favBtn.style.pointerEvents = ''; }
+  }
 }
 
 /* ── フォールバック ── */
