@@ -974,7 +974,23 @@ const FALLBACK = [
   {id:1,name:"サンプル店舗",pref:"東京都",city:"渋谷区",address:"",lat:35.669,lng:139.709,rating:null,reviews:0,tags:["cafe"],website:"",phone:"",instagram:"",category:"",hours:{},photos:[],payment:[],services:[],status:"active"}
 ];
 
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', async () => {
+  await init();
+  // favorites.htmlからのリンク対応: #shop-123
+  const hash = location.hash;
+  if (hash && hash.startsWith('#shop-')) {
+    const shopId = parseInt(hash.replace('#shop-', ''), 10);
+    if (!isNaN(shopId)) {
+      // shops.jsonロード完了を待ってから開く
+      const wait = () => new Promise(r => setTimeout(r, 100));
+      let tries = 0;
+      while (!ALL_SHOPS.length && tries++ < 30) await wait();
+      focusShopOnMap(shopId);
+      openModal(shopId);
+      history.replaceState(null, '', location.pathname);
+    }
+  }
+});
 </script>
 </body>
 </html>
