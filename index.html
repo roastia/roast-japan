@@ -998,7 +998,7 @@ async function uploadMyPhoto(input, shopId) {
     fd.append('file', file);
     fd.append('upload_preset', CLOUDINARY_PRESET);
     fd.append('folder', `roastia/${currentUser.uid}`);
-    fd.append('eager', 'w_1280,ar_16:9,c_fill,g_auto');
+    fd.append('eager', 'w_1280,ar_16:9,c_fill,g_auto,f_webp,q_auto:good');
     const res  = await fetch(CLOUDINARY_URL, { method:'POST', body:fd });
     const data = await res.json();
     if (!res.ok || !data.secure_url) throw new Error(data.error?.message || 'upload failed');
