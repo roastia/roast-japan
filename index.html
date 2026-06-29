@@ -940,7 +940,7 @@ async function loadModalUserData(shopId) {
     const photoWrap = document.getElementById('modal-user-photo-wrap');
     if (photoWrap) {
       photoWrap.innerHTML = photoUrl
-        ? `<img class="modal-user-photo" src="${cloudinary169(photoUrl)}" alt="マイ写真">`
+        ? `<img class="modal-user-photo" src="${photoUrl}" alt="マイ写真">`
         : '';
     }
     _renderRatingSection(shopId, rev.rating||0, rev.memo||'', photoUrl);
