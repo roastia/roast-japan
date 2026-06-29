@@ -161,6 +161,7 @@ nav a:hover{color:var(--gold);}
 .modal-gallery img{width:100%;height:140px;object-fit:cover;display:block;}
 .modal-body{padding:1.6rem 2rem 1.5rem;}
 .modal-pref{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--gold-dim);text-transform:uppercase;margin-bottom:.5rem;}
+.modal-user-photo{width:100%;aspect-ratio:16/9;object-fit:cover;display:block;border-radius:6px;margin-bottom:.8rem;background:var(--bg3);}
 .modal-name{font-size:1.8rem;font-weight:300;color:var(--cream);line-height:1.2;margin-bottom:.4rem;}
 .modal-category{font-family:var(--mono);font-size:11px;color:var(--text-dim);margin-bottom:1.2rem;}
 .modal-rating{display:flex;align-items:center;gap:8px;margin-bottom:1rem;}
@@ -432,6 +433,12 @@ const auth = firebase.auth();
 const db = firebase.firestore();
 const CLOUDINARY_URL    = 'https://api.cloudinary.com/v1_1/daqkrj3zm/image/upload';
 const CLOUDINARY_PRESET = 'roastia_upload';
+
+// Cloudinary URLに16:9トランスフォームを挿入
+function cloudinary169(url) {
+  if (!url || !url.includes('res.cloudinary.com')) return url;
+  return url.replace('/upload/', '/upload/w_1280,ar_16:9,c_fill,g_auto/');
+}
 let currentUser = null;
 
 auth.onAuthStateChanged(user => {
@@ -857,6 +864,7 @@ function openModal(id) {
       ${galleryHtml}
       <div class="modal-body">
         <div class="modal-pref">${shop.pref}${shop.city?' · '+shop.city:''}</div>
+        <div id="modal-user-photo-wrap"></div>
         <div class="modal-name">${shop.name}</div>
         ${shop.category?`<div class="modal-category">${shop.category}</div>`:''}
         ${ratingHtml}${walkHtml}
@@ -927,7 +935,15 @@ async function loadModalUserData(shopId) {
   try {
     const revDoc = await db.collection('users').doc(currentUser.uid).collection('reviews').doc(String(shopId)).get();
     const rev = revDoc.exists ? revDoc.data() : { rating:0, memo:'', photoUrl:'' };
-    _renderRatingSection(shopId, rev.rating||0, rev.memo||'', rev.photoUrl||'');
+    const photoUrl = rev.photoUrl || '';
+    // 県と店名の間に16:9サムネイルを表示
+    const photoWrap = document.getElementById('modal-user-photo-wrap');
+    if (photoWrap) {
+      photoWrap.innerHTML = photoUrl
+        ? `<img class="modal-user-photo" src="${cloudinary169(photoUrl)}" alt="マイ写真">`
+        : '';
+    }
+    _renderRatingSection(shopId, rev.rating||0, rev.memo||'', photoUrl);
   } catch(e) { _renderRatingSection(shopId, 0, '', ''); }
 }
 
@@ -982,10 +998,12 @@ async function uploadMyPhoto(input, shopId) {
     fd.append('file', file);
     fd.append('upload_preset', CLOUDINARY_PRESET);
     fd.append('folder', `roastia/${currentUser.uid}`);
+    fd.append('eager', 'w_1280,ar_16:9,c_fill,g_auto');
     const res  = await fetch(CLOUDINARY_URL, { method:'POST', body:fd });
     const data = await res.json();
     if (!res.ok || !data.secure_url) throw new Error(data.error?.message || 'upload failed');
-    const url = data.secure_url;
+    // eager変換済みURLがあればそちらを使用、なければoriginalをそのまま保存
+    const url = (data.eager && data.eager[0]?.secure_url) ? data.eager[0].secure_url : data.secure_url;
 
     // Firestoreに保存
     await db.collection('users').doc(currentUser.uid).collection('reviews').doc(String(shopId)).set(
