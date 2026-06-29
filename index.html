@@ -962,10 +962,16 @@ function _renderRatingSection(shopId, rating, memo, photoUrl) {
         <img src="${photoUrl}" alt="マイ写真">
         <button class="btn-delete-photo" onclick="deleteMyPhoto(${shopId})" title="写真を削除">✕</button>
        </div>`
-    : `<label class="btn-upload-photo">
-        📷 写真をアップロード（1枚）
-        <input type="file" accept="image/*" onchange="uploadMyPhoto(this,${shopId})">
-       </label>`;
+    : `<div>
+        <label class="btn-upload-photo">
+          📷 写真をアップロード（1枚）
+          <input type="file" accept="image/jpeg,image/png,image/heic,image/heif,image/webp" onchange="uploadMyPhoto(this,${shopId})">
+        </label>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--text-dim);margin-top:5px;line-height:1.6;">
+          対応形式: JPG・PNG・HEIC・WebP　／　上限: 10MB<br>
+          ※ 16:9にトリミング・WebP変換して保存されます
+        </div>
+       </div>`;
   section.innerHTML = `
     <div class="rating-title">あなたの評価</div>
     <div class="my-photo-section">
@@ -1046,10 +1052,16 @@ async function deleteMyPhoto(shopId) {
     );
     const w = document.getElementById('my-photo-wrap');
     if (w) w.innerHTML = `
-      <label class="btn-upload-photo">
-        📷 写真をアップロード（1枚）
-        <input type="file" accept="image/*" onchange="uploadMyPhoto(this,${shopId})">
-      </label>`;
+      <div>
+        <label class="btn-upload-photo">
+          📷 写真をアップロード（1枚）
+          <input type="file" accept="image/jpeg,image/png,image/heic,image/heif,image/webp" onchange="uploadMyPhoto(this,${shopId})">
+        </label>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--text-dim);margin-top:5px;line-height:1.6;">
+          対応形式: JPG・PNG・HEIC・WebP　／　上限: 10MB<br>
+          ※ 16:9にトリミング・WebP変換して保存されます
+        </div>
+      </div>`;
   } catch(e) {
     console.error('delete photo', e);
     if (wrap) wrap.innerHTML = '<div class="photo-uploading" style="color:#c06040">削除失敗</div>';
