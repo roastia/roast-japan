@@ -621,6 +621,10 @@ function distanceMeters(lat1,lng1,lat2,lng2) {
   return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 function walkMinutesFromDist(m) { return Math.round(m/WALK_SPEED); }
+function _fmtPhone(p) {
+  return p ? p.replace(/^\+81-?/, '0') : p;
+}
+
 function _fmtDateTime(d) {
   if (!d) return '';
   return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
@@ -1133,7 +1137,7 @@ function _openModalWith(shop) {
     shop.website ? `<a class="btn-action btn-primary" href="${shop.website}" target="_blank">ウェブサイト</a>` : '',
     `<a class="btn-action btn-secondary" href="${dirUrl}" target="_blank">Google Map</a>`,
     shop.instagram ? `<a class="btn-action btn-secondary" href="https://instagram.com/${shop.instagram.replace('@','')}" target="_blank">Instagram</a>` : '',
-    shop.phone ? `<a class="btn-action btn-secondary" href="tel:${shop.phone}">📞 電話</a>` : '',
+    shop.phone ? `<a class="btn-action btn-secondary" href="tel:${_fmtPhone(shop.phone)}">📞 電話</a>` : '',
   ].filter(Boolean).join('');
 
   document.getElementById('modal-inner').innerHTML = `
@@ -1148,7 +1152,7 @@ function _openModalWith(shop) {
         <div class="modal-tags">${(shop.tags||[]).map(tagLabel).join('')}</div>
         <div class="modal-info">
           <div class="info-block"><div class="info-label">住所</div><div class="info-value">${shop.address||'—'}</div></div>
-          <div class="info-block"><div class="info-label">電話番号</div><div class="info-value">${shop.phone?`<a href="tel:${shop.phone}">${shop.phone}</a>`:'—'}</div></div>
+          <div class="info-block"><div class="info-label">電話番号</div><div class="info-value">${shop.phone?`<a href="tel:${_fmtPhone(shop.phone)}">${_fmtPhone(shop.phone)}</a>`:'—'}</div></div>
           <div class="info-block"><div class="info-label">営業時間</div><div class="info-value">${hoursHtml||'—'}</div></div>
           <div class="info-block"><div class="info-label">支払方法</div><div class="info-value">${payHtml}</div></div>
           <div class="info-block" style="grid-column:1/-1"><div class="info-label">サービス</div><div class="info-value">${svcHtml}</div></div>
