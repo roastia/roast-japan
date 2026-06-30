@@ -236,9 +236,9 @@ function renderFavPanel(shops, uid) {
   if (!shops.length) {
     panel.innerHTML = `
       <div class="empty-state">
-        <div class="empty-icon">♡</div>
+        <div class="empty-icon" style="color:#E53935;opacity:.7">♥</div>
         <div class="empty-title">お気に入りはまだありません</div>
-        <div class="empty-sub">店舗詳細の ♡ ボタンで登録できます</div>
+        <div class="empty-sub">店舗詳細の ♥ ボタンで登録できます</div>
         <a class="btn-go-map" href="index.html">店舗を探す</a>
       </div>`;
     return;
@@ -292,9 +292,9 @@ function renderRevPanel(shops, reviews, uid) {
   if (!shops.length) {
     panel.innerHTML = `
       <div class="empty-state">
-        <div class="empty-icon">★</div>
+        <div class="empty-icon" style="color:#FFB300;opacity:.8">★</div>
         <div class="empty-title">評価した店舗はまだありません</div>
-        <div class="empty-sub">店舗詳細の ★ で評価できます</div>
+        <div class="empty-sub">写真・★・メモのいずれかで評価できます</div>
         <a class="btn-go-map" href="index.html">店舗を探す</a>
       </div>`;
     return;

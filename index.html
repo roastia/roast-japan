@@ -749,7 +749,7 @@ function makeMarkerIcon(shopId, isSelected, isNear) {
     : '';
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 260 230">
     <defs><clipPath id="${clipId}"><ellipse cx="130" cy="115" rx="90" ry="105" transform="rotate(-5 130 115)"/></clipPath></defs>
-    <ellipse cx="130" cy="115" rx="98" ry="113" fill="white" transform="rotate(-5 130 115)"/>
+    <ellipse cx="130" cy="115" rx="106" ry="121" fill="white" transform="rotate(-5 130 115)"/>
     <ellipse cx="130" cy="115" rx="90" ry="105" fill="${color}" transform="rotate(-5 130 115)"/>
     <path d="M160,18 C190,25 200,50 180,75 C160,100 120,120 100,150 C80,175 85,200 100,212 C75,210 60,185 75,155 C90,125 130,105 150,80 C170,55 165,28 145,20 Z" fill="#fff" clip-path="url(#${clipId})"/>
     ${ring}
@@ -1080,7 +1080,6 @@ function _renderRatingSection(shopId, rating, memo, photoUrl) {
   section.innerHTML = `
     <div class="rating-title">あなたの評価</div>
     <div class="my-photo-section">
-      <div class="my-photo-label">マイ写真</div>
       <div id="my-photo-wrap">${photoHtml}</div>
     </div>
     <div class="star-row" id="star-row">${starsHtml}</div>
@@ -1129,6 +1128,9 @@ async function uploadMyPhoto(input, shopId) {
         <button class="btn-delete-photo" onclick="deleteMyPhoto(${shopId})" title="写真を削除">✕</button>
       </div>`;
     URL.revokeObjectURL(localUrl);
+    // 写真だけでも評価済みとしてマーカー更新
+    _mapRevIds.add(Number(shopId));
+    _refreshMarkerIcon(shopId);
   } catch(e) {
     console.error('upload photo', e);
     const w = document.getElementById('my-photo-wrap');
@@ -1187,11 +1189,13 @@ async function saveReview(shopId) {
   if (!currentUser) { openAuthModal(); return; }
   const memo = (document.getElementById('review-memo')?.value||'').trim();
   try {
+    // 既存のphotoUrlを保持しつつ保存（set with merge）
     await db.collection('users').doc(currentUser.uid).collection('reviews').doc(String(shopId)).set({
       rating: _currentRating, memo, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    // マーカー色を更新
-    if (_currentRating > 0) _mapRevIds.add(Number(shopId));
+    }, { merge: true });
+    // ★・メモ・写真のいずれかがあれば評価済みとしてマーカー更新
+    const hasPhoto = !!document.querySelector('#my-photo-wrap img');
+    if (_currentRating > 0 || memo.length > 0 || hasPhoto) _mapRevIds.add(Number(shopId));
     else _mapRevIds.delete(Number(shopId));
     _refreshMarkerIcon(shopId);
     const btn = document.querySelector('.btn-save-review');
