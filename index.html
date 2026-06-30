@@ -120,17 +120,23 @@ nav a:hover{color:var(--gold);}
 .custom-marker{width:28px;height:33px;cursor:pointer;transition:transform .15s;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));}
 .custom-marker:hover{transform:scale(1.4);}
 .custom-marker.near{transform:scale(1.5);filter:drop-shadow(0 2px 5px rgba(0,0,0,.55));}
-.leaflet-popup-content-wrapper{background:#fff !important;border:1px solid rgba(0,0,0,.15) !important;border-radius:4px !important;box-shadow:0 4px 20px rgba(0,0,0,.12) !important;color:#111 !important;}
+.leaflet-popup-content-wrapper{background:#fff !important;border:none !important;border-radius:10px !important;box-shadow:0 6px 24px rgba(0,0,0,.18) !important;color:#111 !important;padding:0 !important;}
 .leaflet-popup-tip{background:#fff !important;}
-.leaflet-popup-content{font-family:var(--serif);font-size:14px;}
-.popup-name{font-size:15px;color:var(--cream);margin-bottom:4px;}
-.popup-pref{font-family:var(--mono);font-size:10px;color:var(--gold-dim);letter-spacing:.1em;}
-.popup-walk{font-family:var(--mono);font-size:10px;color:#555;margin-top:4px;}
-.popup-link{display:block;margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--gold-dim);text-decoration:none;letter-spacing:.1em;cursor:pointer;}
-.popup-link:hover{color:var(--gold);}
-.popup-fav-btn{background:none;border:1px solid #ddd;border-radius:4px;font-size:13px;padding:3px 10px;cursor:pointer;margin-top:8px;display:flex;align-items:center;gap:5px;font-family:var(--sans);color:#888;transition:all .2s;}
-.popup-fav-btn.active{border-color:#E53935;color:#E53935;}
-.popup-fav-btn:hover{border-color:#E53935;color:#E53935;}
+.leaflet-popup-content{font-family:var(--sans);font-size:13px;margin:0 !important;padding:0 !important;}
+.popup-inner{padding:12px 14px 10px;}
+.popup-name{font-size:14px;font-weight:700;color:#1a1a1a;line-height:1.3;margin-bottom:2px;}
+.popup-pref{font-family:var(--mono);font-size:10px;color:#999;letter-spacing:.08em;}
+.popup-meta{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;align-items:center;}
+.popup-badge{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:20px;white-space:nowrap;}
+.popup-badge-walk{background:#f0f0f0;color:#555;}
+.popup-badge-visit{background:#e3f2fd;color:#1565C0;}
+.popup-divider{border:none;border-top:1px solid #f0f0f0;margin:10px 0 8px;}
+.popup-fav-btn{width:100%;background:#fff5f5;border:1.5px solid #ffcdd2;border-radius:6px;font-size:12px;font-weight:600;padding:7px 0;cursor:pointer;color:#c62828;transition:all .2s;font-family:var(--sans);}
+.popup-fav-btn.active{background:#ffebee;border-color:#E53935;color:#E53935;}
+.popup-fav-btn:hover{background:#ffebee;border-color:#E53935;}
+.popup-actions{display:flex;gap:6px;margin-top:6px;}
+.popup-link{flex:1;background:#f7f3ee;border:none;border-radius:6px;font-size:11px;font-weight:600;padding:7px 6px;cursor:pointer;text-align:center;font-family:var(--mono);color:#6F4E37;text-decoration:none;display:block;transition:background .15s;}
+.popup-link:hover{background:#ede5d5;color:#4a3020;}
 
 /* SHOP LIST */
 #section-list{padding:0 0 2rem;}
@@ -845,17 +851,25 @@ function _createMarker(shop) {
   marker._shopId = shop.id;
   marker._isNear = isNear;
   _markerMap[shop.id] = marker;
-  const walkHtml = walkMin ? `<div class="popup-walk">🚶 徒歩約${walkMin}分</div>` : '';
+  const walkBadge = walkMin ? `<span class="popup-badge popup-badge-walk">🚶 ${walkMin}分</span>` : '';
+  const tagBadges = (shop.tags||[]).map(tagLabel).join('');
   marker.bindPopup(`
-    <div class="popup-name">${shop.name}</div>
-    <div class="popup-pref">${shop.pref}${shop.city ? ' · ' + shop.city : ''}</div>
-    ${walkHtml}
-    <div style="margin-top:6px">${(shop.tags||[]).map(tagLabel).join(' ')}</div>
-    <div id="popup-visit-${shop.id}" class="popup-walk" style="display:none;color:#1565C0">📍 来店 <span></span>回</div>
-    <button id="popup-fav-${shop.id}" class="popup-fav-btn" onclick="event.stopPropagation();toggleFavorite(${shop.id})">♥ お気に入り</button>
-    ${myLat ? `<span class="popup-link" onclick="showRoute(${shop.lat},${shop.lng})">🚶 ルートを表示</span>` : ''}
-    <span class="popup-link" onclick="openModal(${shop.id})">詳細を見る →</span>
-  `, { maxWidth: 260 });
+    <div class="popup-inner">
+      <div class="popup-name">${shop.name}</div>
+      <div class="popup-pref">${shop.pref}${shop.city ? ' · ' + shop.city : ''}</div>
+      <div class="popup-meta">
+        ${tagBadges}
+        ${walkBadge}
+        <span id="popup-visit-${shop.id}" class="popup-badge popup-badge-visit" style="display:none">📍 <span></span>回</span>
+      </div>
+      <hr class="popup-divider">
+      <button id="popup-fav-${shop.id}" class="popup-fav-btn" onclick="event.stopPropagation();toggleFavorite(${shop.id})">♥ お気に入り</button>
+      <div class="popup-actions">
+        ${myLat ? `<span class="popup-link" onclick="showRoute(${shop.lat},${shop.lng})">🚶 ルート</span>` : ''}
+        <span class="popup-link" onclick="openModal(${shop.id})">詳細を見る →</span>
+      </div>
+    </div>
+  `, { maxWidth: 240 });
   marker.on('popupopen', () => {
     const btn = document.getElementById(`popup-fav-${shop.id}`);
     if (btn) {
