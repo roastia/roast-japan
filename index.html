@@ -625,6 +625,16 @@ function _fmtPhone(p) {
   return p ? p.replace(/^\+81-?/, '0') : p;
 }
 
+function _fmtAddress(addr) {
+  if (!addr) return addr;
+  return addr
+    .replace(/^日本[、,\s]*/, '')                                              // 先頭の「日本」を削除
+    .replace(/[Ａ-Ｚａ-ｚ０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)) // 全角英数→半角
+    .replace(/[－―ー]/g, '-')                                                  // 全角ハイフン系→半角
+    .replace(/（/g, '(').replace(/）/g, ')')                                   // 全角括弧→半角
+    .replace(/　/g, ' ');                                                       // 全角スペース→半角
+}
+
 function _fmtDateTime(d) {
   if (!d) return '';
   return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
@@ -1151,7 +1161,7 @@ function _openModalWith(shop) {
         ${ratingHtml}${walkHtml}
         <div class="modal-tags">${(shop.tags||[]).map(tagLabel).join('')}</div>
         <div class="modal-info">
-          <div class="info-block"><div class="info-label">住所</div><div class="info-value">${shop.address||'—'}</div></div>
+          <div class="info-block"><div class="info-label">住所</div><div class="info-value">${_fmtAddress(shop.address)||'—'}</div></div>
           <div class="info-block"><div class="info-label">電話番号</div><div class="info-value">${shop.phone?`<a href="tel:${_fmtPhone(shop.phone)}">${_fmtPhone(shop.phone)}</a>`:'—'}</div></div>
           <div class="info-block"><div class="info-label">営業時間</div><div class="info-value">${hoursHtml||'—'}</div></div>
           <div class="info-block"><div class="info-label">支払方法</div><div class="info-value">${payHtml}</div></div>
