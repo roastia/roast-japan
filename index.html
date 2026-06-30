@@ -1064,7 +1064,11 @@ document.addEventListener('keydown', e => {
     closeAuthModal();
     // マップのポップアップ・選択状態・クリック位置を解除
     if (map) map.closePopup();
-    if (locMode === 'map') { resetBase(); toggleLocate(); }
+    if (locMode === 'map') {
+      // ピンだけ除去、リスト・マップ位置はそのまま
+      if (myMarker) { map.removeLayer(myMarker); myMarker = null; }
+      locMode = null;
+    }
     if (_selectedMarker) {
       _selectedMarker._isSelected = false;
       _refreshMarkerIcon(_selectedMarker._shopId);
