@@ -43,8 +43,12 @@ nav a:hover{color:var(--gold);}
 
 /* プロフィール */
 .profile-bar{display:flex;align-items:center;gap:14px;margin-bottom:2rem;padding-bottom:1.5rem;border-bottom:1px solid var(--border);}
-.avatar-ph{width:48px;height:48px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;flex-shrink:0;}
-.avatar-img{width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid var(--border2);}
+.avatar-wrap{position:relative;flex-shrink:0;cursor:pointer;width:56px;height:56px;}
+.avatar-ph{width:56px;height:56px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;color:#fff;font-size:26px;}
+.avatar-img{width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid var(--border2);}
+.avatar-edit{position:absolute;inset:0;border-radius:50%;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;font-size:18px;opacity:0;transition:opacity .2s;pointer-events:none;}
+.avatar-wrap:hover .avatar-edit{opacity:1;}
+.avatar-uploading{opacity:.5;}
 .profile-name{font-family:var(--serif);font-size:1.2rem;color:var(--cream);}
 .profile-email{font-family:var(--mono);font-size:11px;color:var(--text-dim);}
 
@@ -203,13 +207,17 @@ auth.onAuthStateChanged(async user => {
     });
 
     const name = user.displayName || user.email.split('@')[0];
-    const photoHtml = user.photoURL
-      ? `<img class="avatar-img" src="${user.photoURL}" alt="">`
-      : `<div class="avatar-ph">☕</div>`;
+    const innerAvatar = user.photoURL
+      ? `<img id="avatar-img" class="avatar-img" src="${user.photoURL}" alt="">`
+      : `<div id="avatar-img" class="avatar-ph">☕</div>`;
 
     content.innerHTML = `
       <div class="profile-bar">
-        ${photoHtml}
+        <label class="avatar-wrap" title="アイコンを変更">
+          ${innerAvatar}
+          <div class="avatar-edit">📷</div>
+          <input type="file" accept="image/jpeg,image/png,image/heic,image/heif,image/webp" style="display:none" onchange="uploadAvatar(this)">
+        </label>
         <div>
           <div class="profile-name">${escHtml(name)}</div>
           <div class="profile-email">${escHtml(user.email)}</div>
@@ -443,6 +451,34 @@ function makePhotoHtml(shop) {
 
 function escHtml(str) {
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function uploadAvatar(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const avatarEl = document.getElementById('avatar-img');
+  if (avatarEl) avatarEl.classList.add('avatar-uploading');
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('upload_preset', 'roastia_upload');
+    const res = await fetch('https://api.cloudinary.com/v1_1/daqkrj3zm/image/upload', { method:'POST', body:fd });
+    if (!res.ok) throw new Error('upload failed');
+    const data = await res.json();
+    const url = data.secure_url;
+    await auth.currentUser.updateProfile({ photoURL: url });
+    // アバター表示を即時更新
+    if (avatarEl) {
+      avatarEl.outerHTML = `<img id="avatar-img" class="avatar-img" src="${url}" alt="">`;
+    }
+  } catch(e) {
+    alert('アップロードに失敗しました。再試行してください。');
+    console.error(e);
+  } finally {
+    const el = document.getElementById('avatar-img');
+    if (el) el.classList.remove('avatar-uploading');
+    input.value = '';
+  }
 }
 
 async function doLogout() {
