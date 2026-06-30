@@ -306,8 +306,16 @@ footer a:hover{color:var(--gold);}
   .modal-body { padding: 1rem; }
   .modal-name { font-size: 1.4rem; }
   .modal-info { grid-template-columns: 1fr; gap: 1rem; }
-  .modal-footer { padding: .7rem 1rem env(safe-area-inset-bottom, .5rem); gap: 6px; }
-  .modal-footer .btn-action { font-size: 11px; padding: 9px 14px; flex: 1; text-align: center; }
+  .modal-footer {
+    padding: .6rem 1rem env(safe-area-inset-bottom, .4rem);
+    gap: 6px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .modal-footer::-webkit-scrollbar { display: none; }
+  .modal-footer .btn-action { font-size: 10px; padding: 7px 12px; flex: none; white-space: nowrap; }
   .modal-gallery img { height: 110px; }
   .modal-drag-bar { display: block; }
   .rating-section { margin: .5rem 1rem .8rem; padding: .8rem 1rem; }
