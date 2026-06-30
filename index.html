@@ -111,9 +111,9 @@ nav a:hover{color:var(--gold);}
 .leaflet-container{background:#e8e8e8 !important;font-family:var(--serif);}
 .leaflet-tile{filter:none;}
 .my-marker{width:16px;height:16px;background:#4a9eff;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 4px rgba(74,158,255,.25);}
-.custom-marker{width:22px;height:26px;cursor:pointer;transition:transform .15s;filter:drop-shadow(0 2px 3px rgba(0,0,0,.3));}
-.custom-marker:hover{transform:scale(1.5);}
-.custom-marker.near{transform:scale(1.6);filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));}
+.custom-marker{width:28px;height:33px;cursor:pointer;transition:transform .15s;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));}
+.custom-marker:hover{transform:scale(1.4);}
+.custom-marker.near{transform:scale(1.5);filter:drop-shadow(0 2px 5px rgba(0,0,0,.55));}
 .leaflet-popup-content-wrapper{background:#fff !important;border:1px solid rgba(0,0,0,.15) !important;border-radius:4px !important;box-shadow:0 4px 20px rgba(0,0,0,.12) !important;color:#111 !important;}
 .leaflet-popup-tip{background:#fff !important;}
 .leaflet-popup-content{font-family:var(--serif);font-size:14px;}
@@ -741,14 +741,15 @@ function _markerColor(shopId) {
 // マーカーアイコンを生成
 function makeMarkerIcon(shopId, isSelected, isNear) {
   const color = _markerColor(shopId);
-  const w = isSelected ? 30 : 22;
-  const h = isSelected ? 36 : 26;
+  const w = isSelected ? 38 : 28;
+  const h = isSelected ? 45 : 33;
   const clipId = `bc${shopId}`;
   const ring = isSelected
-    ? `<ellipse cx="130" cy="115" rx="108" ry="125" fill="none" stroke="white" stroke-width="18" transform="rotate(-5 130 115)" opacity="0.95"/>`
+    ? `<ellipse cx="130" cy="115" rx="112" ry="129" fill="none" stroke="white" stroke-width="20" transform="rotate(-5 130 115)" opacity="0.95"/>`
     : '';
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 260 230">
     <defs><clipPath id="${clipId}"><ellipse cx="130" cy="115" rx="90" ry="105" transform="rotate(-5 130 115)"/></clipPath></defs>
+    <ellipse cx="130" cy="115" rx="98" ry="113" fill="white" transform="rotate(-5 130 115)"/>
     <ellipse cx="130" cy="115" rx="90" ry="105" fill="${color}" transform="rotate(-5 130 115)"/>
     <path d="M160,18 C190,25 200,50 180,75 C160,100 120,120 100,150 C80,175 85,200 100,212 C75,210 60,185 75,155 C90,125 130,105 150,80 C170,55 165,28 145,20 Z" fill="#fff" clip-path="url(#${clipId})"/>
     ${ring}
