@@ -100,6 +100,27 @@ nav a:hover{color:var(--gold);}
 .btn-unfav{position:absolute;top:8px;right:8px;background:rgba(255,255,255,.9);border:1px solid rgba(192,64,96,.3);color:#c04060;font-size:13px;width:28px;height:28px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;backdrop-filter:blur(4px);}
 .btn-unfav:hover{background:#c04060;color:#fff;border-color:#c04060;}
 
+/* 表示切り替えバー */
+.view-toolbar{display:flex;align-items:center;justify-content:flex-end;margin-bottom:12px;gap:4px;}
+.view-btn{background:none;border:1px solid var(--border);color:var(--text-dim);font-size:14px;width:30px;height:30px;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.view-btn:hover{border-color:var(--border2);color:var(--cream);}
+.view-btn.active{background:#6F4E37;border-color:#6F4E37;color:#fff;}
+
+/* リスト表示モード */
+.shops-grid.list-view{grid-template-columns:1fr;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.shops-grid.list-view .shop-card{border-radius:0;border:none;border-bottom:1px solid var(--border);display:flex;flex-direction:row;align-items:center;transform:none !important;box-shadow:none !important;}
+.shops-grid.list-view .shop-card:last-child{border-bottom:none;}
+.shops-grid.list-view .card-photo,.shops-grid.list-view .card-photo-placeholder{display:none;}
+.shops-grid.list-view .card-body{padding:.55rem 1rem;flex:1;min-width:0;display:flex;align-items:center;gap:10px;flex-wrap:nowrap;}
+.shops-grid.list-view .card-name{font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:0;flex:1;min-width:0;}
+.shops-grid.list-view .card-pref{white-space:nowrap;margin-bottom:0;flex-shrink:0;}
+.shops-grid.list-view .card-tags{margin-bottom:0;flex-wrap:nowrap;flex-shrink:0;}
+.shops-grid.list-view .card-google-rating{flex-shrink:0;white-space:nowrap;}
+.shops-grid.list-view .my-rating-row{margin-bottom:0;flex-shrink:0;}
+.shops-grid.list-view .card-memo{display:none;}
+.shops-grid.list-view .card-date{margin-top:0;flex-shrink:0;}
+.shops-grid.list-view .btn-unfav,.shops-grid.list-view .btn-del-review{top:50%;transform:translateY(-50%);right:6px;}
+
 /* ソートバー */
 .sort-bar{display:flex;align-items:center;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
 .sort-label{font-family:var(--mono);font-size:9px;letter-spacing:.12em;color:var(--text-dim);text-transform:uppercase;margin-right:4px;}
@@ -242,6 +263,10 @@ auth.onAuthStateChanged(async user => {
           <span style="color:#FFB300">★</span> 評価済み<span class="tab-count" id="rev-count">${revShops.length}</span>
         </button>
       </div>
+      <div class="view-toolbar">
+        <button class="view-btn active" id="view-card" onclick="setViewMode('card')" title="カード表示">⊞</button>
+        <button class="view-btn" id="view-list" onclick="setViewMode('list')" title="リスト表示">☰</button>
+      </div>
       <div class="tab-panel active" id="panel-fav"></div>
       <div class="tab-panel" id="panel-rev"></div>
     `;
@@ -259,6 +284,16 @@ function switchTab(name) {
   ['fav','rev'].forEach(t => {
     document.getElementById('tab-'+t)?.classList.toggle('active', t===name);
     document.getElementById('panel-'+t)?.classList.toggle('active', t===name);
+  });
+}
+
+let _viewMode = 'card';
+function setViewMode(mode) {
+  _viewMode = mode;
+  document.getElementById('view-card')?.classList.toggle('active', mode === 'card');
+  document.getElementById('view-list')?.classList.toggle('active', mode === 'list');
+  document.querySelectorAll('.shops-grid').forEach(g => {
+    g.classList.toggle('list-view', mode === 'list');
   });
 }
 
