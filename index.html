@@ -107,6 +107,9 @@ nav a:hover{color:var(--gold);}
 .map-hint{font-family:var(--sans);font-size:10px;color:var(--text-dim);letter-spacing:.05em;margin-left:auto;}
 .section-tag{font-family:var(--sans);font-size:10px;letter-spacing:.15em;color:var(--gold-dim);text-transform:uppercase;font-weight:600;}
 #map{height:calc(100vh - 140px);min-height:400px;width:100%;background:var(--bg3);position:relative;z-index:0;isolation:isolate;cursor:crosshair;}
+#map-legend{position:absolute;bottom:28px;right:10px;z-index:1000;background:rgba(255,255,255,.88);backdrop-filter:blur(4px);border:1px solid rgba(0,0,0,.12);border-radius:6px;padding:7px 10px;font-family:var(--mono);font-size:10px;line-height:1.7;pointer-events:none;}
+.legend-row{display:flex;align-items:center;gap:6px;color:#333;}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;border:1.5px solid rgba(255,255,255,.8);box-shadow:0 1px 2px rgba(0,0,0,.25);}
 .cluster-icon{width:36px;height:36px;background:#6F4E37;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;font-weight:600;border:2px solid #fff;box-shadow:0 2px 6px rgba(111,78,55,.4);}
 .leaflet-container{background:#e8e8e8 !important;font-family:var(--serif);}
 .leaflet-tile{filter:saturate(0.5);}
@@ -122,6 +125,9 @@ nav a:hover{color:var(--gold);}
 .popup-walk{font-family:var(--mono);font-size:10px;color:#555;margin-top:4px;}
 .popup-link{display:block;margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--gold-dim);text-decoration:none;letter-spacing:.1em;cursor:pointer;}
 .popup-link:hover{color:var(--gold);}
+.popup-fav-btn{background:none;border:1px solid #ddd;border-radius:4px;font-size:13px;padding:3px 10px;cursor:pointer;margin-top:8px;display:flex;align-items:center;gap:5px;font-family:var(--sans);color:#888;transition:all .2s;}
+.popup-fav-btn.active{border-color:#E53935;color:#E53935;}
+.popup-fav-btn:hover{border-color:#E53935;color:#E53935;}
 
 /* SHOP LIST */
 #section-list{padding:0 0 2rem;}
@@ -351,7 +357,15 @@ footer a:hover{color:var(--gold);}
       <span class="section-title">全国マップ</span>
       <span class="map-hint">地図をクリックしてその場所から検索</span>
     </div>
-    <div id="map"></div>
+    <div style="position:relative">
+      <div id="map"></div>
+      <div id="map-legend">
+        <div class="legend-row"><span class="legend-dot" style="background:#6F4E37"></span>通常</div>
+        <div class="legend-row"><span class="legend-dot" style="background:#E53935"></span>お気に入り</div>
+        <div class="legend-row"><span class="legend-dot" style="background:#FFB300"></span>評価済み</div>
+        <div class="legend-row"><span class="legend-dot" style="background:#2E7D32"></span>両方</div>
+      </div>
+    </div>
   </section>
 </div>
 
@@ -786,9 +800,17 @@ function updateMarkers(shops) {
       <div class="popup-pref">${shop.pref}${shop.city ? ' · ' + shop.city : ''}</div>
       ${walkHtml}
       <div style="margin-top:6px">${(shop.tags||[]).map(tagLabel).join(' ')}</div>
-      ${myLat ? `<span class="popup-link" onclick="showRoute(${shop.lat},${shop.lng})">🚶 ルートを表示</span>` : ''}
+      <button id="popup-fav-${shop.id}" class="popup-fav-btn" onclick="toggleFavorite(${shop.id})">♥ お気に入り</button>
+      ${myLat ? `<a class="popup-link" href="https://www.google.com/maps/dir/${myLat},${myLng}/${shop.lat},${shop.lng}" target="_blank">🗺 Google Map</a>` : `<a class="popup-link" href="https://www.google.com/maps/search/?api=1&query=${shop.lat},${shop.lng}" target="_blank">🗺 Google Map</a>`}
       <span class="popup-link" onclick="openModal(${shop.id})">詳細を見る →</span>
     `, { maxWidth: 260 });
+    marker.on('popupopen', () => {
+      const btn = document.getElementById(`popup-fav-${shop.id}`);
+      if (!btn) return;
+      const isFav = _mapFavIds.has(Number(shop.id));
+      btn.textContent = isFav ? '♥ お気に入り済み' : '♥ お気に入り';
+      btn.classList.toggle('active', isFav);
+    });
     // お気に入り・評価済みは非クラスターレイヤー、それ以外はクラスター
     if (isFavOrRev) favRevLayer.addLayer(marker);
     else markerGroup.addLayer(marker);
@@ -953,7 +975,7 @@ function openModal(id) {
   const dirUrl  = myLat ? `https://www.google.com/maps/dir/${myLat},${myLng}/${shop.lat},${shop.lng}` : mapsUrl;
   const footerBtnHtml = [
     shop.website ? `<a class="btn-action btn-primary" href="${shop.website}" target="_blank">ウェブサイト</a>` : '',
-    `<a class="btn-action btn-secondary" href="${dirUrl}" target="_blank">${myLat?'ルート案内':'Google Maps'}</a>`,
+    `<a class="btn-action btn-secondary" href="${dirUrl}" target="_blank">Google Map</a>`,
     shop.instagram ? `<a class="btn-action btn-secondary" href="https://instagram.com/${shop.instagram.replace('@','')}" target="_blank">Instagram</a>` : '',
     shop.phone ? `<a class="btn-action btn-secondary" href="tel:${shop.phone}">📞 電話</a>` : '',
   ].filter(Boolean).join('');
@@ -1210,14 +1232,17 @@ async function toggleFavorite(shopId) {
   const ref = db.collection('users').doc(currentUser.uid).collection('favorites').doc(String(shopId));
   try {
     const doc = await ref.get();
+    const popupBtn = document.getElementById(`popup-fav-${shopId}`);
     if (doc.exists) {
       await ref.delete();
       _mapFavIds.delete(Number(shopId));
       if (favBtn) { favBtn.textContent='♡'; favBtn.classList.remove('active'); }
+      if (popupBtn) { popupBtn.textContent='♥ お気に入り'; popupBtn.classList.remove('active'); }
     } else {
       await ref.set({ shopId, addedAt: firebase.firestore.FieldValue.serverTimestamp() });
       _mapFavIds.add(Number(shopId));
       if (favBtn) { favBtn.textContent='♥'; favBtn.classList.add('active'); }
+      if (popupBtn) { popupBtn.textContent='♥ お気に入り済み'; popupBtn.classList.add('active'); }
     }
     _refreshMarkerIcon(shopId);
   } catch(e) {
