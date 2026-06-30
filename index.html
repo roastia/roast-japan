@@ -148,7 +148,8 @@ nav a:hover{color:var(--gold);}
 .tag-online{background:rgba(125,74,49,.10);color:#7D4A31;border:1px solid rgba(125,74,49,.25);}
 .tag-scaj{background:rgba(111,78,55,.10);color:#6F4E37;border:1px solid rgba(111,78,55,.25);}
 .tag-cafe{background:rgba(112,66,65,.10);color:#704241;border:1px solid rgba(112,66,65,.25);}
-.col-walk{flex:0 0 72px;text-align:right;font-family:var(--mono);font-size:10px;color:#555;padding:0 14px 0 4px;white-space:nowrap;}
+.col-walk{flex:0 0 90px;text-align:right;font-family:var(--mono);font-size:10px;color:#555;padding:0 14px 0 4px;white-space:nowrap;}
+.rev-date{font-size:8px;color:#FFB300;margin-top:2px;}
 .shop-grid-header{display:flex;align-items:center;gap:0;padding:8px 0;border-bottom:1px solid var(--border2);background:var(--bg2);}
 .shop-grid-header .col-num,.shop-grid-header .col-name,.shop-grid-header .col-tags,.shop-grid-header .col-walk{font-family:var(--sans);font-size:9px;letter-spacing:.15em;color:#7D4A31;text-transform:uppercase;font-weight:600;}
 .shop-grid-header .col-name{padding-left:4px;}
@@ -573,8 +574,9 @@ let ALL_SHOPS = [], filteredShops = [], displayedCount = 50;
 let map, markerGroup, favRevLayer;
 let _markerMap = {};        // shopId → Leaflet marker
 let _selectedMarker = null; // 現在選択中のマーカー
-let _mapFavIds = new Set(); // お気に入り店舗ID
-let _mapRevIds = new Set(); // 評価済み店舗ID
+let _mapFavIds  = new Set(); // お気に入り店舗ID
+let _mapRevIds  = new Set(); // 評価済み店舗ID
+let _mapRevDates = {};       // 評価済み店舗の最終更新日時 {shopId: Date}
 
 let myLat = null, myLng = null;
 let myMarker = null, walkCircle = null, routeControl = null;
@@ -590,6 +592,10 @@ function distanceMeters(lat1,lng1,lat2,lng2) {
   return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 function walkMinutesFromDist(m) { return Math.round(m/WALK_SPEED); }
+function _fmtDateTime(d) {
+  if (!d) return '';
+  return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
 
 function resetBase() {
   myLat = myLng = null; locMode = null;
@@ -832,8 +838,17 @@ async function loadUserMapData() {
       db.collection('users').doc(currentUser.uid).collection('favorites').get(),
       db.collection('users').doc(currentUser.uid).collection('reviews').get(),
     ]);
-    _mapFavIds = new Set(favSnap.docs.map(d => Number(d.id)));
-    _mapRevIds = new Set(revSnap.docs.filter(d => (d.data().rating||0) > 0).map(d => Number(d.id)));
+    _mapFavIds   = new Set(favSnap.docs.map(d => Number(d.id)));
+    _mapRevIds   = new Set();
+    _mapRevDates = {};
+    revSnap.docs.forEach(d => {
+      const data = d.data();
+      if (data.rating > 0 || data.memo || data.photoUrl) {
+        const id = Number(d.id);
+        _mapRevIds.add(id);
+        if (data.updatedAt) _mapRevDates[id] = data.updatedAt.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt);
+      }
+    });
     if (ALL_SHOPS.length) updateMarkers(ALL_SHOPS);
   } catch(e) { console.warn('loadUserMapData', e); }
 }
@@ -886,7 +901,10 @@ function renderCards() {
         <div class="card-pref">${shop.pref}${shop.city?' · '+shop.city:''}</div>
       </div>
       <div class="col-tags">${(shop.tags||[]).map(tagLabel).join('')}</div>
-      <div class="col-walk">${walkMin?'🚶'+walkMin+'分':''}</div>`;
+      <div class="col-walk">
+        ${walkMin ? `<div>🚶${walkMin}分</div>` : ''}
+        ${isRev && _mapRevDates[Number(shop.id)] ? `<div class="rev-date">${_fmtDateTime(_mapRevDates[Number(shop.id)])}</div>` : ''}
+      </div>`;
     grid.appendChild(card);
   });
   const countEl = document.getElementById('count-display');
@@ -1040,7 +1058,20 @@ function closeModal(e) {
   _currentModalShopId = null;
 }
 
-document.addEventListener('keydown', e => { if (e.key==='Escape') { closeModal(); closeAuthModal(); } });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeModal();
+    closeAuthModal();
+    // マップのポップアップ・選択状態を解除
+    if (map) map.closePopup();
+    if (_selectedMarker) {
+      _selectedMarker._isSelected = false;
+      _refreshMarkerIcon(_selectedMarker._shopId);
+      _selectedMarker = null;
+    }
+    if (typeof routingControl !== 'undefined' && routingControl) { map.removeControl(routingControl); routingControl = null; }
+  }
+});
 
 /* ════════════════════════
    お気に入り・個人評価
@@ -1222,8 +1253,13 @@ async function saveReview(shopId) {
     }, { merge: true });
     // ★・メモ・写真のいずれかがあれば評価済みとしてマーカー更新
     const hasPhoto = !!document.querySelector('#my-photo-wrap img');
-    if (_currentRating > 0 || memo.length > 0 || hasPhoto) _mapRevIds.add(Number(shopId));
-    else _mapRevIds.delete(Number(shopId));
+    if (_currentRating > 0 || memo.length > 0 || hasPhoto) {
+      _mapRevIds.add(Number(shopId));
+      _mapRevDates[Number(shopId)] = new Date();
+    } else {
+      _mapRevIds.delete(Number(shopId));
+      delete _mapRevDates[Number(shopId)];
+    }
     _refreshMarkerIcon(shopId);
     const btn = document.querySelector('.btn-save-review');
     if (btn) { btn.textContent='✓ 保存しました'; btn.style.background='#50a078'; setTimeout(()=>{ if(btn){btn.textContent='保存';btn.style.background='';} },2000); }
