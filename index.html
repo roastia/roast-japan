@@ -215,6 +215,11 @@ nav a:hover{color:var(--gold);}
 .review-memo:focus{border-color:var(--gold-dim);}
 .btn-save-review{background:#6F4E37;color:#fff;border:none;font-family:var(--sans);font-size:11px;font-weight:600;padding:7px 18px;border-radius:4px;cursor:pointer;transition:opacity .2s;}
 .btn-save-review:hover{opacity:.85;}
+.checkin-wrap{margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--border);display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;}
+.checkin-count{font-family:var(--mono);font-size:11px;color:var(--text-dim);flex:1;min-width:100px;}
+.btn-checkin{background:#1565C0;color:#fff;border:none;font-family:var(--sans);font-size:11px;font-weight:600;padding:7px 14px;border-radius:4px;cursor:pointer;transition:opacity .2s;white-space:nowrap;}
+.btn-checkin:hover:not(:disabled){opacity:.85;}
+.btn-checkin:disabled{background:#666;cursor:not-allowed;opacity:.7;}
 .rating-login-msg{font-family:var(--sans);font-size:11px;color:var(--text-dim);}
 .rating-login-msg a{color:var(--gold-dim);cursor:pointer;text-decoration:underline;}
 /* マイ写真 */
@@ -1198,6 +1203,33 @@ async function loadModalUserData(shopId) {
     }
     _renderRatingSection(shopId, rev.rating||0, rev.memo||'', photoUrl);
   } catch(e) { _renderRatingSection(shopId, 0, '', ''); }
+
+  // チェックイン情報を読み込み
+  loadCheckinData(shopId);
+}
+
+async function loadCheckinData(shopId) {
+  if (!currentUser) return;
+  const countEl = document.getElementById('checkin-count');
+  const btn = document.getElementById('checkin-btn');
+  if (!countEl || !btn) return;
+
+  try {
+    const vcDoc = await db.collection('users').doc(currentUser.uid).collection('visitCounts').doc(String(shopId)).get();
+    const data = vcDoc.exists ? vcDoc.data() : null;
+    const count = data ? (data.count || 0) : 0;
+    countEl.textContent = `📍 来店回数: ${count}回`;
+
+    if (data && data.lastCheckin) {
+      const lastDate = data.lastCheckin.toDate ? data.lastCheckin.toDate() : new Date(data.lastCheckin);
+      const diffHours = (Date.now() - lastDate.getTime()) / (1000 * 60 * 60);
+      if (diffHours < 2) {
+        const remainMin = Math.ceil((2 - diffHours) * 60);
+        btn.disabled = true;
+        btn.textContent = `⏳ ${remainMin}分後に再チェックイン可`;
+      }
+    }
+  } catch(e) { console.warn('checkin load', e); }
 }
 
 let _currentRating = 0;
@@ -1232,7 +1264,11 @@ function _renderRatingSection(shopId, rating, memo, photoUrl) {
     </div>
     <div class="star-row" id="star-row">${starsHtml}</div>
     <textarea class="review-memo" id="review-memo" placeholder="メモ（自分だけに見えます）">${memo}</textarea>
-    <button class="btn-save-review" onclick="saveReview(${shopId})">保存</button>`;
+    <button class="btn-save-review" onclick="saveReview(${shopId})">保存</button>
+    <div class="checkin-wrap">
+      <span class="checkin-count" id="checkin-count">📍 来店回数: —</span>
+      <button class="btn-checkin" id="checkin-btn" onclick="checkIn(${shopId})">📍 チェックイン</button>
+    </div>`;
 }
 
 async function uploadMyPhoto(input, shopId) {
@@ -1331,6 +1367,90 @@ function _restoreStars() {
 function setStarRating(n) {
   _currentRating = n;
   document.querySelectorAll('#star-row .star-btn').forEach((b,i) => b.classList.toggle('active', i<n));
+}
+
+async function checkIn(shopId) {
+  if (!currentUser) { openAuthModal(); return; }
+  const btn = document.getElementById('checkin-btn');
+  const countEl = document.getElementById('checkin-count');
+  if (btn) { btn.disabled = true; btn.textContent = '📍 確認中...'; }
+
+  // 店舗位置情報を取得
+  const shop = _allShopsForMap.find(s => Number(s.id) === Number(shopId));
+  if (!shop || !shop.lat || !shop.lng) {
+    alert('この店舗の位置情報がありません');
+    if (btn) { btn.disabled = false; btn.textContent = '📍 チェックイン'; }
+    return;
+  }
+
+  // GPS取得
+  let userLat, userLng;
+  try {
+    const pos = await new Promise((resolve, reject) =>
+      navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000 })
+    );
+    userLat = pos.coords.latitude;
+    userLng = pos.coords.longitude;
+  } catch(e) {
+    alert('現在地を取得できませんでした。位置情報サービスを有効にしてください。');
+    if (btn) { btn.disabled = false; btn.textContent = '📍 チェックイン'; }
+    return;
+  }
+
+  // 300m以内か確認
+  const dist = distanceMeters(userLat, userLng, shop.lat, shop.lng);
+  if (dist > 300) {
+    alert(`チェックインには店舗から300m以内にいる必要があります（現在: 約${Math.round(dist)}m離れています）`);
+    if (btn) { btn.disabled = false; btn.textContent = '📍 チェックイン'; }
+    return;
+  }
+
+  // 2時間クールダウン確認 & 書き込み
+  const uid = currentUser.uid;
+  const vcRef = db.collection('users').doc(uid).collection('visitCounts').doc(String(shopId));
+  try {
+    const vcDoc = await vcRef.get();
+    if (vcDoc.exists && vcDoc.data().lastCheckin) {
+      const lastDate = vcDoc.data().lastCheckin.toDate ? vcDoc.data().lastCheckin.toDate() : new Date(vcDoc.data().lastCheckin);
+      const diffHours = (Date.now() - lastDate.getTime()) / (1000 * 60 * 60);
+      if (diffHours < 2) {
+        const remainMin = Math.ceil((2 - diffHours) * 60);
+        alert(`前回のチェックインから2時間経過していません（あと約${remainMin}分）`);
+        if (btn) { btn.disabled = true; btn.textContent = `⏳ ${remainMin}分後に再チェックイン可`; }
+        return;
+      }
+    }
+
+    const nowTs = firebase.firestore.FieldValue.serverTimestamp();
+    // チェックイン記録を追加
+    await db.collection('users').doc(uid).collection('checkins').add({
+      shopId: Number(shopId), timestamp: nowTs, lat: userLat, lng: userLng
+    });
+    // 来店回数を更新
+    await vcRef.set({
+      count: firebase.firestore.FieldValue.increment(1),
+      lastCheckin: nowTs,
+      shopId: Number(shopId)
+    }, { merge: true });
+
+    // UI更新（再取得）
+    const updated = await vcRef.get();
+    const newCount = updated.exists ? (updated.data().count || 1) : 1;
+    if (countEl) countEl.textContent = `📍 来店回数: ${newCount}回`;
+    if (btn) { btn.disabled = true; btn.textContent = '✅ チェックイン済み'; }
+
+    // トースト通知
+    const toast = document.createElement('div');
+    toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#2E7D32;color:#fff;padding:10px 22px;border-radius:6px;font-size:13px;font-weight:600;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,.3);';
+    toast.textContent = `✅ チェックイン完了！来店回数: ${newCount}回`;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+
+  } catch(e) {
+    console.error('checkin error', e);
+    alert('チェックインに失敗しました。しばらくしてから再試行してください。');
+    if (btn) { btn.disabled = false; btn.textContent = '📍 チェックイン'; }
+  }
 }
 
 async function saveReview(shopId) {

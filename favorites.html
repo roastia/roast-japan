@@ -218,9 +218,10 @@ auth.onAuthStateChanged(async user => {
   await loadShopsJson();
 
   try {
-    const [favsSnap, revsSnap] = await Promise.all([
+    const [favsSnap, revsSnap, vcSnap] = await Promise.all([
       db.collection('users').doc(user.uid).collection('favorites').get(),
       db.collection('users').doc(user.uid).collection('reviews').get(),
+      db.collection('users').doc(user.uid).collection('visitCounts').get(),
     ]);
 
     const favIds   = new Set(favsSnap.docs.map(d => String(d.id)));
@@ -228,6 +229,8 @@ auth.onAuthStateChanged(async user => {
     favsSnap.docs.forEach(d => { favDates[String(d.id)] = d.data().addedAt || null; });
     const reviews  = {};
     revsSnap.docs.forEach(d => { reviews[String(d.id)] = d.data(); });
+    const visitCounts = {};
+    vcSnap.docs.forEach(d => { visitCounts[String(d.id)] = d.data().count || 0; });
 
     const favShops = allShops.filter(s => favIds.has(String(s.id)));
     const revShops = allShops.filter(s => {
@@ -272,7 +275,7 @@ auth.onAuthStateChanged(async user => {
     `;
 
     renderFavPanel(favShops, favDates, user.uid);
-    renderRevPanel(revShops, reviews, user.uid);
+    renderRevPanel(revShops, reviews, visitCounts, user.uid);
 
   } catch(e) {
     content.innerHTML = `<div class="loading" style="color:#c06040">読み込みに失敗しました。<br><span style="font-size:10px">${e.code || ''} ${e.message || String(e)}</span></div>`;
@@ -367,7 +370,7 @@ async function removeFav(e, shopId, uid) {
 /* ── 評価パネル ── */
 let _revSortKey = 'rating_desc';
 
-function renderRevPanel(shops, reviews, uid) {
+function renderRevPanel(shops, reviews, visitCounts, uid) {
   const panel = document.getElementById('panel-rev');
   if (!shops.length) {
     panel.innerHTML = `
@@ -406,7 +409,8 @@ function renderRevPanel(shops, reviews, uid) {
     });
     sorted.forEach(shop => {
       const rev = reviews[String(shop.id)] || {};
-      grid.appendChild(makeRevCard(shop, rev, uid));
+      const visitCount = visitCounts[String(shop.id)] || 0;
+      grid.appendChild(makeRevCard(shop, rev, visitCount, uid));
     });
   }
 
@@ -422,7 +426,7 @@ function renderRevPanel(shops, reviews, uid) {
   panel.appendChild(grid);
 }
 
-function makeRevCard(shop, rev, uid) {
+function makeRevCard(shop, rev, visitCount, uid) {
   const myRating   = rev.rating    || 0;
   const myMemo     = rev.memo      || '';
   const myPhotoUrl = rev.photoUrl  || '';
@@ -434,6 +438,7 @@ function makeRevCard(shop, rev, uid) {
   const memoHtml   = myMemo ? `<div class="card-memo">${escHtml(myMemo)}</div>` : '';
   const starsHtml  = myStars ? `<span class="my-stars-display">${myStars}</span>` : '';
   const dateHtml   = rev.updatedAt ? `<div class="card-date">★ ${fmtDate(rev.updatedAt)}</div>` : '';
+  const visitHtml  = visitCount > 0 ? `<div class="card-date" style="color:#1565C0">📍 来店 ${visitCount}回</div>` : '';
 
   const card = document.createElement('div');
   card.className = 'shop-card';
@@ -447,6 +452,7 @@ function makeRevCard(shop, rev, uid) {
       ${starsHtml ? `<div class="my-rating-row">${starsHtml}<span class="my-rating-label">あなたの評価</span></div>` : ''}
       ${memoHtml}
       ${dateHtml}
+      ${visitHtml}
     </div>`;
   card.addEventListener('click', () => goToShop(shop.id));
   return card;
