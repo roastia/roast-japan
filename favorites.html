@@ -135,6 +135,29 @@ nav a:hover{color:var(--gold);}
 .card-memo{font-family:var(--serif);font-size:12px;color:var(--text-dim);line-height:1.5;border-top:1px solid var(--border);padding-top:.5rem;margin-top:.4rem;white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
 .card-date{font-family:var(--mono);font-size:9px;color:var(--text-dim);margin-top:.5rem;letter-spacing:.05em;}
 .btn-del-review{position:absolute;top:8px;right:8px;background:rgba(255,255,255,.9);border:1px solid rgba(120,120,120,.3);color:#999;font-size:12px;width:28px;height:28px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;backdrop-filter:blur(4px);}
+/* フレンドタブ */
+.friends-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;}
+.friend-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:1rem;display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;transition:all .2s;text-align:center;}
+.friend-card:hover{border-color:var(--border2);box-shadow:0 4px 16px rgba(111,78,55,.1);transform:translateY(-2px);}
+.friend-avatar{width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid var(--border2);}
+.friend-avatar-ph{width:52px;height:52px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;flex-shrink:0;}
+.friend-name{font-family:var(--serif);font-size:.95rem;color:var(--cream);font-weight:600;}
+.btn-unfollow{background:none;border:1px solid var(--border2);color:var(--text-dim);font-family:var(--sans);font-size:10px;padding:4px 12px;border-radius:3px;cursor:pointer;transition:all .2s;margin-top:auto;}
+.btn-unfollow:hover{border-color:#c04060;color:#c04060;}
+
+/* フォローボタン（他人ページ） */
+.btn-follow{background:#6F4E37;color:#fff;border:none;font-family:var(--sans);font-size:11px;font-weight:600;padding:7px 18px;border-radius:4px;cursor:pointer;transition:all .2s;letter-spacing:.05em;}
+.btn-follow:hover{opacity:.85;}
+.btn-follow.following{background:none;border:1px solid var(--border2);color:var(--text-dim);}
+.btn-follow.following:hover{border-color:#c04060;color:#c04060;}
+
+/* URLシェアボタン */
+.btn-share-url{background:none;border:1px solid var(--border2);color:var(--text-dim);font-family:var(--sans);font-size:10px;padding:5px 12px;border-radius:3px;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.btn-share-url:hover{border-color:var(--gold);color:var(--gold);}
+
+/* 閲覧モードバナー */
+.view-mode-banner{background:rgba(111,78,55,.07);border:1px solid var(--border);border-radius:6px;padding:.6rem 1rem;margin-bottom:1.4rem;font-family:var(--sans);font-size:12px;color:var(--text-dim);letter-spacing:.05em;}
+
 .btn-del-review:hover{background:#888;color:#fff;border-color:#888;}
 
 footer{border-top:1px solid var(--border);padding:1rem;text-align:center;font-family:var(--sans);font-size:11px;color:var(--text-dim);margin-top:3rem;}
@@ -191,6 +214,10 @@ const db   = firebase.firestore();
 
 let allShops = [];
 
+// URLパラメータ取得
+const urlParams = new URLSearchParams(location.search);
+const viewUid = urlParams.get('uid'); // 他人のUIDがあれば他人ページ
+
 async function loadShopsJson() {
   try {
     const res = await fetch('shops-full.json', { cache: 'default' });
@@ -217,11 +244,113 @@ auth.onAuthStateChanged(async user => {
 
   await loadShopsJson();
 
+  // プロフィールをFirestoreにupsert（自分のページ or 他人ページどちらでも）
   try {
-    const [favsSnap, revsSnap, vcSnap] = await Promise.all([
+    await db.collection('users').doc(user.uid).collection('profile').doc('info').set({
+      displayName: user.displayName || user.email.split('@')[0],
+      photoURL: user.photoURL || '',
+    }, { merge: true });
+  } catch(e) { /* profileの書き込み失敗は無視 */ }
+
+  // 表示対象UID
+  const targetUid = (viewUid && viewUid !== user.uid) ? viewUid : null;
+
+  if (targetUid) {
+    // ── 他人のページを表示 ──
+    await renderOtherPage(user, targetUid, content);
+  } else {
+    // ── 自分のページを表示 ──
+    await renderMyPage(user, content);
+  }
+});
+
+/* ── 自分のページ ── */
+async function renderMyPage(user, content) {
+  try {
+    const [favsSnap, revsSnap, vcSnap, followingSnap] = await Promise.all([
       db.collection('users').doc(user.uid).collection('favorites').get(),
       db.collection('users').doc(user.uid).collection('reviews').get(),
       db.collection('users').doc(user.uid).collection('visitCounts').get(),
+      db.collection('users').doc(user.uid).collection('following').get(),
+    ]);
+
+    const favIds   = new Set(favsSnap.docs.map(d => String(d.id)));
+    const favDates = {};
+    favsSnap.docs.forEach(d => { favDates[String(d.id)] = d.data().addedAt || null; });
+    const reviews  = {};
+    revsSnap.docs.forEach(d => { reviews[String(d.id)] = d.data(); });
+    const visitCounts = {};
+    vcSnap.docs.forEach(d => { visitCounts[String(d.id)] = d.data().count || 0; });
+    const following = followingSnap.docs.map(d => ({ uid: d.id, ...d.data() }));
+
+    const favShops = allShops.filter(s => favIds.has(String(s.id)));
+    const revShops = allShops.filter(s => {
+      const r = reviews[String(s.id)];
+      return r && (r.rating > 0 || r.memo || r.photoUrl);
+    });
+
+    const name = user.displayName || user.email.split('@')[0];
+    const innerAvatar = user.photoURL
+      ? `<img id="avatar-img" class="avatar-img" src="${user.photoURL}" alt="">`
+      : `<div id="avatar-img" class="avatar-ph">☕</div>`;
+
+    const shareUrl = `${location.origin}${location.pathname}?uid=${encodeURIComponent(user.uid)}`;
+
+    content.innerHTML = `
+      <div class="profile-bar">
+        <label class="avatar-wrap" title="アイコンを変更">
+          ${innerAvatar}
+          <div class="avatar-edit">📷</div>
+          <input type="file" accept="image/jpeg,image/png,image/heic,image/heif,image/webp" style="display:none" onchange="uploadAvatar(this)">
+        </label>
+        <div style="flex:1">
+          <div class="profile-name-row">
+            <span id="profile-name-display" class="profile-name">${escHtml(name)}</span>
+            <button class="btn-edit-name" onclick="startEditName()" title="名前を変更">✏️</button>
+          </div>
+          <div class="profile-email">${escHtml(user.email)}</div>
+        </div>
+        <button class="btn-share-url" onclick="copyShareUrl('${escHtml(shareUrl)}')" title="URLをコピー">🔗 URLをシェア</button>
+      </div>
+      <div class="tabs">
+        <button class="tab-btn active" id="tab-fav" onclick="switchTab('fav')">
+          <span style="color:#E53935">♥</span> お気に入り<span class="tab-count" id="fav-count">${favShops.length}</span>
+        </button>
+        <button class="tab-btn" id="tab-rev" onclick="switchTab('rev')">
+          <span style="color:#FFB300">★</span> 評価済み<span class="tab-count" id="rev-count">${revShops.length}</span>
+        </button>
+        <button class="tab-btn" id="tab-friends" onclick="switchTab('friends')">
+          👥 フレンド<span class="tab-count" id="friends-count">${following.length}</span>
+        </button>
+      </div>
+      <div class="view-toolbar">
+        <button class="view-btn active" id="view-card" onclick="setViewMode('card')" title="カード表示">⊞</button>
+        <button class="view-btn" id="view-list" onclick="setViewMode('list')" title="リスト表示">☰</button>
+      </div>
+      <div class="tab-panel active" id="panel-fav"></div>
+      <div class="tab-panel" id="panel-rev"></div>
+      <div class="tab-panel" id="panel-friends"></div>
+    `;
+
+    renderFavPanel(favShops, favDates, user.uid);
+    renderRevPanel(revShops, reviews, visitCounts, user.uid);
+    renderFriendPanel(following, user.uid);
+
+  } catch(e) {
+    content.innerHTML = `<div class="loading" style="color:#c06040">読み込みに失敗しました。<br><span style="font-size:10px">${e.code || ''} ${e.message || String(e)}</span></div>`;
+    console.error(e);
+  }
+}
+
+/* ── 他人のページ ── */
+async function renderOtherPage(currentUser, targetUid, content) {
+  try {
+    const [favsSnap, revsSnap, vcSnap, profileSnap, followingDoc] = await Promise.all([
+      db.collection('users').doc(targetUid).collection('favorites').get(),
+      db.collection('users').doc(targetUid).collection('reviews').get(),
+      db.collection('users').doc(targetUid).collection('visitCounts').get(),
+      db.collection('users').doc(targetUid).collection('profile').doc('info').get(),
+      db.collection('users').doc(currentUser.uid).collection('following').doc(targetUid).get(),
     ]);
 
     const favIds   = new Set(favsSnap.docs.map(d => String(d.id)));
@@ -238,25 +367,30 @@ auth.onAuthStateChanged(async user => {
       return r && (r.rating > 0 || r.memo || r.photoUrl);
     });
 
-    const name = user.displayName || user.email.split('@')[0];
-    const innerAvatar = user.photoURL
-      ? `<img id="avatar-img" class="avatar-img" src="${user.photoURL}" alt="">`
-      : `<div id="avatar-img" class="avatar-ph">☕</div>`;
+    const profileData = profileSnap.exists ? profileSnap.data() : {};
+    const targetName = profileData.displayName || 'ユーザー';
+    const targetPhoto = profileData.photoURL || '';
+    const isFollowing = followingDoc.exists;
+
+    const innerAvatar = targetPhoto
+      ? `<img class="avatar-img" src="${escHtml(targetPhoto)}" alt="">`
+      : `<div class="avatar-ph">☕</div>`;
+
+    const followBtnClass = isFollowing ? 'btn-follow following' : 'btn-follow';
+    const followBtnText = isFollowing ? 'フォロー中' : 'フォローする';
 
     content.innerHTML = `
+      <div class="view-mode-banner">👁 閲覧モード — ${escHtml(targetName)}さんのマイページ</div>
       <div class="profile-bar">
-        <label class="avatar-wrap" title="アイコンを変更">
+        <div class="avatar-wrap" style="cursor:default">
           ${innerAvatar}
-          <div class="avatar-edit">📷</div>
-          <input type="file" accept="image/jpeg,image/png,image/heic,image/heif,image/webp" style="display:none" onchange="uploadAvatar(this)">
-        </label>
-        <div>
-          <div class="profile-name-row">
-            <span id="profile-name-display" class="profile-name">${escHtml(name)}</span>
-            <button class="btn-edit-name" onclick="startEditName()" title="名前を変更">✏️</button>
-          </div>
-          <div class="profile-email">${escHtml(user.email)}</div>
         </div>
+        <div style="flex:1">
+          <div class="profile-name-row">
+            <span class="profile-name">${escHtml(targetName)}</span>
+          </div>
+        </div>
+        <button id="btn-follow-main" class="${followBtnClass}" onclick="toggleFollow('${escHtml(targetUid)}','${escHtml(currentUser.uid)}')">${followBtnText}</button>
       </div>
       <div class="tabs">
         <button class="tab-btn active" id="tab-fav" onclick="switchTab('fav')">
@@ -274,17 +408,20 @@ auth.onAuthStateChanged(async user => {
       <div class="tab-panel" id="panel-rev"></div>
     `;
 
-    renderFavPanel(favShops, favDates, user.uid);
-    renderRevPanel(revShops, reviews, visitCounts, user.uid);
+    renderFavPanelReadOnly(favShops, favDates);
+    renderRevPanelReadOnly(revShops, reviews, visitCounts);
+
+    // フォロー状態をwindowに保持
+    window._followState = { isFollowing, targetUid, currentUser };
 
   } catch(e) {
     content.innerHTML = `<div class="loading" style="color:#c06040">読み込みに失敗しました。<br><span style="font-size:10px">${e.code || ''} ${e.message || String(e)}</span></div>`;
     console.error(e);
   }
-});
+}
 
 function switchTab(name) {
-  ['fav','rev'].forEach(t => {
+  ['fav','rev','friends'].forEach(t => {
     document.getElementById('tab-'+t)?.classList.toggle('active', t===name);
     document.getElementById('panel-'+t)?.classList.toggle('active', t===name);
   });
@@ -305,6 +442,198 @@ function fmtDate(ts) {
   if (!ts) return '';
   const d = ts.toDate ? ts.toDate() : new Date(ts);
   return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+/* ── フレンドパネル ── */
+function renderFriendPanel(following, currentUid) {
+  const panel = document.getElementById('panel-friends');
+  if (!following.length) {
+    panel.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon" style="opacity:.5">👥</div>
+        <div class="empty-title">フレンドはまだいません</div>
+        <div class="empty-sub">他のユーザーのページでフォローすると、ここに表示されます</div>
+      </div>`;
+    return;
+  }
+  const grid = document.createElement('div');
+  grid.className = 'friends-grid';
+  following.forEach(f => {
+    const avatarEl = f.photoURL
+      ? `<img class="friend-avatar" src="${escHtml(f.photoURL)}" alt="" onerror="this.outerHTML='<div class=friend-avatar-ph>☕</div>'">`
+      : `<div class="friend-avatar-ph">☕</div>`;
+    const card = document.createElement('div');
+    card.className = 'friend-card';
+    card.innerHTML = `
+      ${avatarEl}
+      <div class="friend-name">${escHtml(f.displayName || 'ユーザー')}</div>
+      <button class="btn-unfollow" onclick="unfollowFromCard(event,'${escHtml(f.uid)}','${escHtml(currentUid)}',this)">フォロー解除</button>`;
+    card.addEventListener('click', e => {
+      if (e.target.classList.contains('btn-unfollow')) return;
+      location.href = `favorites.html?uid=${encodeURIComponent(f.uid)}`;
+    });
+    grid.appendChild(card);
+  });
+  panel.appendChild(grid);
+}
+
+async function unfollowFromCard(e, targetUid, currentUid, btn) {
+  e.stopPropagation();
+  if (!confirm('フォローを解除しますか？')) return;
+  btn.disabled = true;
+  try {
+    const batch = db.batch();
+    batch.delete(db.collection('users').doc(currentUid).collection('following').doc(targetUid));
+    batch.delete(db.collection('users').doc(targetUid).collection('followers').doc(currentUid));
+    await batch.commit();
+    const card = btn.closest('.friend-card');
+    fadeRemove(card);
+    updateCount('friends-count', -1);
+  } catch(err) { btn.disabled = false; console.error(err); alert('フォロー解除に失敗しました'); }
+}
+
+/* ── フォロー/フォロー解除（他人ページ） ── */
+async function toggleFollow(targetUid, currentUid) {
+  const btn = document.getElementById('btn-follow-main');
+  if (!btn) return;
+  btn.disabled = true;
+  const state = window._followState || {};
+  try {
+    if (state.isFollowing) {
+      // フォロー解除
+      const batch = db.batch();
+      batch.delete(db.collection('users').doc(currentUid).collection('following').doc(targetUid));
+      batch.delete(db.collection('users').doc(targetUid).collection('followers').doc(currentUid));
+      await batch.commit();
+      state.isFollowing = false;
+      btn.textContent = 'フォローする';
+      btn.className = 'btn-follow';
+    } else {
+      // フォロー
+      const currentUser = state.currentUser || auth.currentUser;
+      const currentName = currentUser.displayName || currentUser.email.split('@')[0];
+      const currentPhoto = currentUser.photoURL || '';
+      // 相手のプロフィール取得
+      const targetProfileSnap = await db.collection('users').doc(targetUid).collection('profile').doc('info').get();
+      const targetProfile = targetProfileSnap.exists ? targetProfileSnap.data() : {};
+      const targetName = targetProfile.displayName || 'ユーザー';
+      const targetPhoto = targetProfile.photoURL || '';
+      const now = firebase.firestore.FieldValue.serverTimestamp();
+      const batch = db.batch();
+      batch.set(
+        db.collection('users').doc(currentUid).collection('following').doc(targetUid),
+        { targetUid, displayName: targetName, photoURL: targetPhoto, followedAt: now }
+      );
+      batch.set(
+        db.collection('users').doc(targetUid).collection('followers').doc(currentUid),
+        { followerUid: currentUid, displayName: currentName, photoURL: currentPhoto, followedAt: now }
+      );
+      await batch.commit();
+      state.isFollowing = true;
+      btn.textContent = 'フォロー中';
+      btn.className = 'btn-follow following';
+    }
+  } catch(err) { console.error(err); alert('操作に失敗しました'); }
+  btn.disabled = false;
+}
+
+/* ── URLシェア ── */
+async function copyShareUrl(url) {
+  try {
+    await navigator.clipboard.writeText(url);
+    const btn = document.querySelector('.btn-share-url');
+    if (btn) {
+      const orig = btn.textContent;
+      btn.textContent = '✓ コピーしました';
+      setTimeout(() => { btn.textContent = orig; }, 2000);
+    }
+  } catch(e) {
+    prompt('URLをコピーしてください', url);
+  }
+}
+
+/* ── 読み取り専用パネル（他人ページ） ── */
+function renderFavPanelReadOnly(shops, favDates) {
+  const panel = document.getElementById('panel-fav');
+  if (!shops.length) {
+    panel.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon" style="color:#E53935;opacity:.7">♥</div>
+        <div class="empty-title">お気に入りはまだありません</div>
+      </div>`;
+    return;
+  }
+  const grid = document.createElement('div');
+  grid.className = 'shops-grid';
+  shops.forEach(shop => {
+    const addedAt = favDates[String(shop.id)] || null;
+    const stars = '★'.repeat(Math.round(shop.rating||0))+'☆'.repeat(5-Math.round(shop.rating||0));
+    const tagHtml = makeTagHtml(shop.tags);
+    const photo = makePhotoHtml(shop);
+    const ratingHtml = shop.rating
+      ? `<div class="card-google-rating"><span class="stars">${stars}</span> ${shop.rating}${shop.reviews?' ('+shop.reviews.toLocaleString()+'件)':''}</div>` : '';
+    const dateHtml = addedAt ? `<div class="card-date">♥ ${fmtDate(addedAt)}</div>` : '';
+    const card = document.createElement('div');
+    card.className = 'shop-card';
+    card.innerHTML = `
+      ${photo}
+      <div class="card-body">
+        <div class="card-pref">${shop.pref}${shop.city?' · '+shop.city:''}</div>
+        <div class="card-name">${escHtml(shop.name)}</div>
+        <div class="card-tags">${tagHtml}</div>
+        ${ratingHtml}
+        ${dateHtml}
+      </div>`;
+    card.addEventListener('click', () => goToShop(shop.id));
+    grid.appendChild(card);
+  });
+  panel.appendChild(grid);
+}
+
+function renderRevPanelReadOnly(shops, reviews, visitCounts) {
+  const panel = document.getElementById('panel-rev');
+  if (!shops.length) {
+    panel.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon" style="color:#FFB300;opacity:.8">★</div>
+        <div class="empty-title">評価した店舗はまだありません</div>
+      </div>`;
+    return;
+  }
+  const grid = document.createElement('div');
+  grid.className = 'shops-grid';
+  shops.forEach(shop => {
+    const rev = reviews[String(shop.id)] || {};
+    const visitCount = visitCounts[String(shop.id)] || 0;
+    const myRating   = rev.rating    || 0;
+    const myMemo     = rev.memo      || '';
+    const myPhotoUrl = rev.photoUrl  || '';
+    const myStars    = myRating > 0 ? '★'.repeat(myRating)+'☆'.repeat(5-myRating) : '';
+    const tagHtml    = makeTagHtml(shop.tags);
+    const photo = myPhotoUrl
+      ? `<img class="card-photo" src="${myPhotoUrl}" alt="${escHtml(shop.name)}" loading="lazy" onerror="this.outerHTML='<div class=card-photo-placeholder>☕</div>'">`
+      : makePhotoHtml(shop);
+    const memoHtml   = myMemo ? `<div class="card-memo">${escHtml(myMemo)}</div>` : '';
+    const starsHtml  = myStars ? `<span class="my-stars-display">${myStars}</span>` : '';
+    const dateHtml   = rev.updatedAt ? `<div class="card-date">★ ${fmtDate(rev.updatedAt)}</div>` : '';
+    const visitHtml  = visitCount > 0 ? `<div class="card-date" style="color:#1565C0">📍 来店 ${visitCount}回</div>` : '';
+    const card = document.createElement('div');
+    card.className = 'shop-card';
+    card.innerHTML = `
+      ${photo}
+      <div class="card-body">
+        <div class="card-pref">${shop.pref}${shop.city?' · '+shop.city:''}</div>
+        <div class="card-name">${escHtml(shop.name)}</div>
+        <div class="card-tags">${tagHtml}</div>
+        ${starsHtml ? `<div class="my-rating-row">${starsHtml}<span class="my-rating-label">評価</span></div>` : ''}
+        ${memoHtml}
+        ${dateHtml}
+        ${visitHtml}
+      </div>`;
+    card.addEventListener('click', () => goToShop(shop.id));
+    grid.appendChild(card);
+  });
+  panel.appendChild(grid);
 }
 
 /* ── お気に入りパネル ── */
@@ -529,7 +858,12 @@ async function saveDisplayName() {
   const newName = inp.value.trim();
   if (!newName) return;
   try {
-    await auth.currentUser.updateProfile({ displayName: newName });
+    const u = auth.currentUser;
+    await u.updateProfile({ displayName: newName });
+    // Firestoreのプロフィールも同期
+    await db.collection('users').doc(u.uid).collection('profile').doc('info').set(
+      { displayName: newName }, { merge: true }
+    );
     cancelEditName(newName);
   } catch(e) {
     alert('名前の変更に失敗しました: ' + (e.message || e));
@@ -549,7 +883,12 @@ async function uploadAvatar(input) {
     if (!res.ok) throw new Error('upload failed');
     const data = await res.json();
     const url = data.secure_url;
-    await auth.currentUser.updateProfile({ photoURL: url });
+    const u = auth.currentUser;
+    await u.updateProfile({ photoURL: url });
+    // Firestoreのプロフィールも同期
+    await db.collection('users').doc(u.uid).collection('profile').doc('info').set(
+      { photoURL: url }, { merge: true }
+    );
     // アバター表示を即時更新
     if (avatarEl) {
       avatarEl.outerHTML = `<img id="avatar-img" class="avatar-img" src="${url}" alt="">`;
