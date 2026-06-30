@@ -892,6 +892,8 @@ function _createMarker(shop) {
       else visitEl.style.display = 'none';
     }
   });
+  // ポップアップを閉じた後に保留していたレイヤー移動を実行
+  marker.on('popupclose', () => { _refreshMarkerIcon(shop.id); });
   if (isFavOrRev) favRevLayer.addLayer(marker);
   else markerGroup.addLayer(marker);
   return marker;
@@ -965,16 +967,16 @@ function _refreshMarkerIcon(shopId) {
   const isFavOrRev = _mapFavIds.has(Number(shopId)) || _mapRevIds.has(Number(shopId));
   const inFavLayer = favRevLayer.hasLayer(m);
   const inCluster  = markerGroup.hasLayer(m);
+  // ポップアップ表示中はレイヤー移動しない（消えるのを防ぐ）
+  // → popupclose 時に再度呼ばれて移動する
+  if (m.isPopupOpen()) return;
+
   if (isFavOrRev && !inFavLayer) {
-    const wasOpen = m.isPopupOpen();
     if (inCluster) markerGroup.removeLayer(m);
     favRevLayer.addLayer(m);
-    if (wasOpen) m.openPopup();
   } else if (!isFavOrRev && !inCluster) {
-    const wasOpen = m.isPopupOpen();
     if (inFavLayer) favRevLayer.removeLayer(m);
     markerGroup.addLayer(m);
-    if (wasOpen) m.openPopup();
   }
 }
 
