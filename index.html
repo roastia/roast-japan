@@ -830,7 +830,7 @@ async function loadUserMapData() {
   if (!currentUser) {
     _mapFavIds = new Set();
     _mapRevIds = new Set();
-    if (ALL_SHOPS.length) updateMarkers(ALL_SHOPS);
+    if (ALL_SHOPS.length) { updateMarkers(ALL_SHOPS); renderCards(); }
     return;
   }
   try {
@@ -849,7 +849,7 @@ async function loadUserMapData() {
         if (data.updatedAt) _mapRevDates[id] = data.updatedAt.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt);
       }
     });
-    if (ALL_SHOPS.length) updateMarkers(ALL_SHOPS);
+    if (ALL_SHOPS.length) { updateMarkers(ALL_SHOPS); renderCards(); }
   } catch(e) { console.warn('loadUserMapData', e); }
 }
 
@@ -1062,8 +1062,9 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     closeModal();
     closeAuthModal();
-    // マップのポップアップ・選択状態を解除
+    // マップのポップアップ・選択状態・クリック位置を解除
     if (map) map.closePopup();
+    if (locMode === 'map') resetBase();
     if (_selectedMarker) {
       _selectedMarker._isSelected = false;
       _refreshMarkerIcon(_selectedMarker._shopId);
