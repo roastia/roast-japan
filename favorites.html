@@ -169,7 +169,7 @@ let allShops = [];
 
 async function loadShopsJson() {
   try {
-    const res = await fetch('shops.json', { cache: 'default' });
+    const res = await fetch('shops-full.json', { cache: 'default' });
     allShops = await res.json();
   } catch(e) { allShops = []; }
 }

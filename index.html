@@ -4,13 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>roastia - 日本最大級の自家焙煎珈琲店データベース</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="preconnect" href="https://www.gstatic.com">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css"/>
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -569,8 +572,11 @@ function _authErr(msg) {
 /* ════════════════════════
    地図・データ
 ════════════════════════ */
-const DATA_URL = 'shops.json';
+const DATA_URL      = 'shops-lite.json'; // 初期表示用（軽量版）
+const DATA_FULL_URL = 'shops-full.json'; // モーダル詳細用（全フィールド）
 let ALL_SHOPS = [], filteredShops = [], displayedCount = 50;
+let _fullShopsMap = null;       // shopId → full shop data
+let _fullDataPromise = null;    // prefetchのPromise
 let map, markerGroup, favRevLayer;
 let _markerMap = {};        // shopId → Leaflet marker
 let _selectedMarker = null; // 現在選択中のマーカー
@@ -691,11 +697,30 @@ async function loadShops() {
     ALL_SHOPS = await res.json();
     if (!ALL_SHOPS.length) throw new Error('空');
   } catch(e) {
-    console.warn('shops.json 読み込み失敗:', e.message);
+    console.warn('shops-lite.json 読み込み失敗:', e.message);
     ALL_SHOPS = FALLBACK;
   }
   filteredShops = [...ALL_SHOPS];
   initUI();
+  // 初期表示完了後にfull dataをバックグラウンドでprefetch
+  _prefetchFullData();
+}
+
+function _prefetchFullData() {
+  if (_fullDataPromise) return;
+  _fullDataPromise = fetch(DATA_FULL_URL, { cache:'default' })
+    .then(r => r.json())
+    .then(data => {
+      _fullShopsMap = {};
+      data.forEach(s => { _fullShopsMap[s.id] = s; });
+    })
+    .catch(e => console.warn('shops-full.json prefetch失敗:', e));
+}
+
+async function _getFullShop(id) {
+  if (_fullShopsMap) return _fullShopsMap[id] || ALL_SHOPS.find(s => s.id == id);
+  await _fullDataPromise;
+  return (_fullShopsMap && _fullShopsMap[id]) || ALL_SHOPS.find(s => s.id == id);
 }
 
 function initUI() {
@@ -958,9 +983,20 @@ function setCafeFilter(val) { window._cafeFilter=val; displayedCount=50; filterS
 let _currentModalShopId = null;
 
 function openModal(id) {
-  const shop = ALL_SHOPS.find(s=>s.id===id);
-  if (!shop) return;
+  const liteShop = ALL_SHOPS.find(s=>s.id===id);
+  if (!liteShop) return;
   _currentModalShopId = id;
+  // full dataが既に取得済みならすぐ表示、なければliteで先に開いてfull到着後に更新
+  if (_fullShopsMap) {
+    _openModalWith(_fullShopsMap[id] || liteShop);
+  } else {
+    _openModalWith(liteShop);
+    _getFullShop(id).then(shop => { if (_currentModalShopId === id) _openModalWith(shop); });
+  }
+}
+
+function _openModalWith(shop) {
+  const id = shop.id;
 
   // 前の選択マーカーを元に戻す
   if (_selectedMarker) {
