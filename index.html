@@ -444,8 +444,8 @@ let currentUser = null;
 auth.onAuthStateChanged(user => {
   currentUser = user;
   _updateLoginBtn();
-  // モーダルが開いていれば再ロード
   if (_currentModalShopId !== null) loadModalUserData(_currentModalShopId);
+  loadUserMapData();
 });
 
 function _updateLoginBtn() {
@@ -555,6 +555,10 @@ function _authErr(msg) {
 const DATA_URL = 'shops.json';
 let ALL_SHOPS = [], filteredShops = [], displayedCount = 50;
 let map, markerGroup;
+let _markerMap = {};        // shopId → Leaflet marker
+let _selectedMarker = null; // 現在選択中のマーカー
+let _mapFavIds = new Set(); // お気に入り店舗ID
+let _mapRevIds = new Set(); // 評価済み店舗ID
 
 let myLat = null, myLng = null;
 let myMarker = null, walkCircle = null, routeControl = null;
@@ -721,30 +725,91 @@ function initMap() {
   }
 }
 
+// マーカー色を決定（お気に入り・評価状態に応じて）
+function _markerColor(shopId) {
+  const id = Number(shopId);
+  const isFav = _mapFavIds.has(id);
+  const isRev = _mapRevIds.has(id);
+  if (isFav && isRev) return '#882D17'; // 両方: ダークレッド
+  if (isFav)          return '#c04060'; // お気に入り: ピンクレッド
+  if (isRev)          return '#e8a020'; // 評価済み: アンバー
+  return '#6F4E37';                     // デフォルト: コーヒーブラウン
+}
+
+// マーカーアイコンを生成
+function makeMarkerIcon(shopId, isSelected, isNear) {
+  const color = _markerColor(shopId);
+  const w = isSelected ? 30 : 22;
+  const h = isSelected ? 36 : 26;
+  const clipId = `bc${shopId}`;
+  const ring = isSelected
+    ? `<ellipse cx="130" cy="115" rx="108" ry="125" fill="none" stroke="white" stroke-width="18" transform="rotate(-5 130 115)" opacity="0.95"/>`
+    : '';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 260 230">
+    <defs><clipPath id="${clipId}"><ellipse cx="130" cy="115" rx="90" ry="105" transform="rotate(-5 130 115)"/></clipPath></defs>
+    <ellipse cx="130" cy="115" rx="90" ry="105" fill="${color}" transform="rotate(-5 130 115)"/>
+    <path d="M160,18 C190,25 200,50 180,75 C160,100 120,120 100,150 C80,175 85,200 100,212 C75,210 60,185 75,155 C90,125 130,105 150,80 C170,55 165,28 145,20 Z" fill="#fff" clip-path="url(#${clipId})"/>
+    ${ring}
+  </svg>`;
+  const el = document.createElement('div');
+  el.className = 'custom-marker' + (isNear ? ' near' : '') + (isSelected ? ' selected' : '');
+  el.innerHTML = svg;
+  return L.divIcon({ html: el, className: '', iconSize: [w, h], iconAnchor: [Math.round(w/2), Math.round(h/2)] });
+}
+
 function updateMarkers(shops) {
   markerGroup.clearLayers();
+  _markerMap = {};
+  _selectedMarker = null;
   if (!shops.length) return;
   shops.forEach(shop => {
-    const dist = (myLat && shop.lat && shop.lng) ? distanceMeters(myLat,myLng,shop.lat,shop.lng) : null;
+    if (!shop.lat || !shop.lng) return;
+    const dist = myLat ? distanceMeters(myLat, myLng, shop.lat, shop.lng) : null;
     const walkMin = dist ? walkMinutesFromDist(dist) : null;
-    const isNear = dist && walkMinutes>0 && dist<=walkToMeters(walkMinutes);
-    const el = document.createElement('div');
-    el.className = 'custom-marker'+(isNear?' near':'');
-    el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="26" viewBox="0 0 260 230"><defs><clipPath id="bc"><ellipse cx="130" cy="115" rx="90" ry="105" transform="rotate(-5 130 115)"/></clipPath></defs><ellipse cx="130" cy="115" rx="90" ry="105" fill="#6F4E37" transform="rotate(-5 130 115)"/><path d="M160,18 C190,25 200,50 180,75 C160,100 120,120 100,150 C80,175 85,200 100,212 C75,210 60,185 75,155 C90,125 130,105 150,80 C170,55 165,28 145,20 Z" fill="#fff" clip-path="url(#bc)"/></svg>`;
-    const icon = L.divIcon({ html:el, className:'', iconSize:[22,26], iconAnchor:[11,13] });
-    const marker = L.marker([shop.lat,shop.lng],{icon});
+    const isNear = dist && walkMinutes > 0 && dist <= walkToMeters(walkMinutes);
+    const icon = makeMarkerIcon(shop.id, false, isNear);
+    const marker = L.marker([shop.lat, shop.lng], { icon });
+    marker._shopId   = shop.id;
+    marker._isNear   = isNear;
+    _markerMap[shop.id] = marker;
     const walkHtml = walkMin ? `<div class="popup-walk">🚶 徒歩約${walkMin}分</div>` : '';
     marker.bindPopup(`
       <div class="popup-name">${shop.name}</div>
-      <div class="popup-pref">${shop.pref}${shop.city?' · '+shop.city:''}</div>
+      <div class="popup-pref">${shop.pref}${shop.city ? ' · ' + shop.city : ''}</div>
       ${walkHtml}
       <div style="margin-top:6px">${(shop.tags||[]).map(tagLabel).join(' ')}</div>
-      ${myLat?`<span class="popup-link" onclick="showRoute(${shop.lat},${shop.lng})">🚶 ルートを表示</span>`:''}
+      ${myLat ? `<span class="popup-link" onclick="showRoute(${shop.lat},${shop.lng})">🚶 ルートを表示</span>` : ''}
       <span class="popup-link" onclick="openModal(${shop.id})">詳細を見る →</span>
-    `,{maxWidth:260});
-    marker._shopId = shop.id;
+    `, { maxWidth: 260 });
     markerGroup.addLayer(marker);
   });
+}
+
+// ユーザーのお気に入り・評価をロードしてマーカーを色分け
+async function loadUserMapData() {
+  if (!currentUser) {
+    _mapFavIds = new Set();
+    _mapRevIds = new Set();
+    if (ALL_SHOPS.length) updateMarkers(ALL_SHOPS);
+    return;
+  }
+  try {
+    const [favSnap, revSnap] = await Promise.all([
+      db.collection('users').doc(currentUser.uid).collection('favorites').get(),
+      db.collection('users').doc(currentUser.uid).collection('reviews').get(),
+    ]);
+    _mapFavIds = new Set(favSnap.docs.map(d => Number(d.id)));
+    _mapRevIds = new Set(revSnap.docs.filter(d => (d.data().rating||0) > 0).map(d => Number(d.id)));
+    if (ALL_SHOPS.length) updateMarkers(ALL_SHOPS);
+  } catch(e) { console.warn('loadUserMapData', e); }
+}
+
+// 指定店舗のマーカーアイコンだけ更新
+function _refreshMarkerIcon(shopId) {
+  const m = _markerMap[shopId];
+  if (!m) return;
+  const isSelected = (m === _selectedMarker);
+  m.setIcon(makeMarkerIcon(shopId, isSelected, m._isNear));
 }
 
 function tagLabel(t) {
@@ -831,6 +896,19 @@ function openModal(id) {
   if (!shop) return;
   _currentModalShopId = id;
 
+  // 前の選択マーカーを元に戻す
+  if (_selectedMarker) {
+    const prevId = _selectedMarker._shopId;
+    _selectedMarker = null;
+    _refreshMarkerIcon(prevId);
+  }
+  // 新しいマーカーを選択状態に
+  const newMarker = _markerMap[id];
+  if (newMarker) {
+    _selectedMarker = newMarker;
+    _refreshMarkerIcon(id);
+  }
+
   const dist = (myLat&&shop.lat&&shop.lng) ? distanceMeters(myLat,myLng,shop.lat,shop.lng) : null;
   const walkMin = dist ? walkMinutesFromDist(dist) : null;
   const galleryHtml = (shop.photos&&shop.photos.length)
@@ -905,6 +983,12 @@ function closeModal(e) {
   }
   document.getElementById('modal-overlay').classList.remove('open');
   document.body.style.overflow = '';
+  // 選択マーカーを元に戻す
+  if (_selectedMarker) {
+    const prevId = _selectedMarker._shopId;
+    _selectedMarker = null;
+    _refreshMarkerIcon(prevId);
+  }
   _currentModalShopId = null;
 }
 
@@ -1085,6 +1169,10 @@ async function saveReview(shopId) {
     await db.collection('users').doc(currentUser.uid).collection('reviews').doc(String(shopId)).set({
       rating: _currentRating, memo, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
+    // マーカー色を更新
+    if (_currentRating > 0) _mapRevIds.add(Number(shopId));
+    else _mapRevIds.delete(Number(shopId));
+    _refreshMarkerIcon(shopId);
     const btn = document.querySelector('.btn-save-review');
     if (btn) { btn.textContent='✓ 保存しました'; btn.style.background='#50a078'; setTimeout(()=>{ if(btn){btn.textContent='保存';btn.style.background='';} },2000); }
   } catch(e) { console.error('save review', e); }
@@ -1099,11 +1187,14 @@ async function toggleFavorite(shopId) {
     const doc = await ref.get();
     if (doc.exists) {
       await ref.delete();
+      _mapFavIds.delete(Number(shopId));
       if (favBtn) { favBtn.textContent='♡'; favBtn.classList.remove('active'); }
     } else {
       await ref.set({ shopId, addedAt: firebase.firestore.FieldValue.serverTimestamp() });
+      _mapFavIds.add(Number(shopId));
       if (favBtn) { favBtn.textContent='♥'; favBtn.classList.add('active'); }
     }
+    _refreshMarkerIcon(shopId);
   } catch(e) {
     console.error('toggle fav', e);
     alert('お気に入りの保存に失敗しました: ' + (e.code || e.message));
