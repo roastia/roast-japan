@@ -622,7 +622,7 @@ function distanceMeters(lat1,lng1,lat2,lng2) {
 }
 function walkMinutesFromDist(m) { return Math.round(m/WALK_SPEED); }
 function _fmtPhone(p) {
-  return p ? p.replace(/^\+81-?/, '0') : p;
+  return p ? p.replace(/^\+81[-\s]?/, '0') : p;
 }
 
 function _fmtAddress(addr) {
