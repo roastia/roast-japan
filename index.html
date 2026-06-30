@@ -801,7 +801,7 @@ function updateMarkers(shops) {
       ${walkHtml}
       <div style="margin-top:6px">${(shop.tags||[]).map(tagLabel).join(' ')}</div>
       <button id="popup-fav-${shop.id}" class="popup-fav-btn" onclick="toggleFavorite(${shop.id})">♥ お気に入り</button>
-      ${myLat ? `<a class="popup-link" href="https://www.google.com/maps/dir/${myLat},${myLng}/${shop.lat},${shop.lng}" target="_blank">🗺 Google Map</a>` : `<a class="popup-link" href="https://www.google.com/maps/search/?api=1&query=${shop.lat},${shop.lng}" target="_blank">🗺 Google Map</a>`}
+      ${myLat ? `<span class="popup-link" onclick="showRoute(${shop.lat},${shop.lng})">🚶 ルートを表示</span>` : ''}
       <span class="popup-link" onclick="openModal(${shop.id})">詳細を見る →</span>
     `, { maxWidth: 260 });
     marker.on('popupopen', () => {
