@@ -153,6 +153,9 @@ footer a:hover{color:var(--gold);}
 </footer>
 
 <script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/roast-japan/sw.js').catch(()=>{}));
+}
 const firebaseConfig = {
   apiKey: "AIzaSyDsyPuwfAxBsqXO0iVXcM6NoOiXVLcFb7Q",
   authDomain: "roastia-f9907.firebaseapp.com",

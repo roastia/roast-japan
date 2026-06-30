@@ -437,6 +437,9 @@ footer a:hover{color:var(--gold);}
 </div>
 
 <script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/roast-japan/sw.js').catch(()=>{}));
+}
 /* ════════════════════════
    Firebase
 ════════════════════════ */
@@ -749,6 +752,9 @@ function initMap() {
   // お気に入り・評価済みは非クラスターレイヤー（常に個別表示）
   favRevLayer = L.layerGroup().addTo(map);
 
+  // マップ移動時にビューポート内の新しいマーカーを追加
+  map.on('moveend zoomend', _addViewportMarkers);
+
   map.on('click', function(e) {
     myLat = e.latlng.lat; myLng = e.latlng.lng; locMode = 'map';
     onLocated('マップで選択した場所');
@@ -807,47 +813,77 @@ function makeMarkerIcon(shopId, isSelected, isNear) {
   return L.divIcon({ html: el, className: '', iconSize: [w, h], iconAnchor: [Math.round(w/2), Math.round(h/2)] });
 }
 
+let _allShopsForMap = []; // 全店舗データ（ビューポートフィルタ用）
+
 function updateMarkers(shops) {
   markerGroup.clearLayers();
   favRevLayer.clearLayers();
   _markerMap = {};
   _selectedMarker = null;
+  _allShopsForMap = shops;
   if (!shops.length) return;
-  shops.forEach(shop => {
-    if (!shop.lat || !shop.lng) return;
-    const dist = myLat ? distanceMeters(myLat, myLng, shop.lat, shop.lng) : null;
-    const walkMin = dist ? walkMinutesFromDist(dist) : null;
-    const isNear = dist && walkMinutes > 0 && dist <= walkToMeters(walkMinutes);
-    const isFavOrRev = _mapFavIds.has(Number(shop.id)) || _mapRevIds.has(Number(shop.id));
-    const icon = makeMarkerIcon(shop.id, false, isNear);
-    const marker = L.marker([shop.lat, shop.lng], {
-      icon,
-      zIndexOffset: isFavOrRev ? 1000 : 0
-    });
-    marker._shopId = shop.id;
-    marker._isNear = isNear;
-    _markerMap[shop.id] = marker;
-    const walkHtml = walkMin ? `<div class="popup-walk">🚶 徒歩約${walkMin}分</div>` : '';
-    marker.bindPopup(`
-      <div class="popup-name">${shop.name}</div>
-      <div class="popup-pref">${shop.pref}${shop.city ? ' · ' + shop.city : ''}</div>
-      ${walkHtml}
-      <div style="margin-top:6px">${(shop.tags||[]).map(tagLabel).join(' ')}</div>
-      <button id="popup-fav-${shop.id}" class="popup-fav-btn" onclick="toggleFavorite(${shop.id})">♥ お気に入り</button>
-      ${myLat ? `<span class="popup-link" onclick="showRoute(${shop.lat},${shop.lng})">🚶 ルートを表示</span>` : ''}
-      <span class="popup-link" onclick="openModal(${shop.id})">詳細を見る →</span>
-    `, { maxWidth: 260 });
-    marker.on('popupopen', () => {
-      const btn = document.getElementById(`popup-fav-${shop.id}`);
-      if (!btn) return;
-      const isFav = _mapFavIds.has(Number(shop.id));
-      btn.textContent = isFav ? '♥ お気に入り済み' : '♥ お気に入り';
-      btn.classList.toggle('active', isFav);
-    });
-    // お気に入り・評価済みは非クラスターレイヤー、それ以外はクラスター
-    if (isFavOrRev) favRevLayer.addLayer(marker);
-    else markerGroup.addLayer(marker);
+  _addViewportMarkers();
+}
+
+function _createMarker(shop) {
+  if (_markerMap[shop.id]) return _markerMap[shop.id];
+  const dist = myLat ? distanceMeters(myLat, myLng, shop.lat, shop.lng) : null;
+  const walkMin = dist ? walkMinutesFromDist(dist) : null;
+  const isNear = dist && walkMinutes > 0 && dist <= walkToMeters(walkMinutes);
+  const isFavOrRev = _mapFavIds.has(Number(shop.id)) || _mapRevIds.has(Number(shop.id));
+  const icon = makeMarkerIcon(shop.id, false, isNear);
+  const marker = L.marker([shop.lat, shop.lng], {
+    icon,
+    zIndexOffset: isFavOrRev ? 1000 : 0
   });
+  marker._shopId = shop.id;
+  marker._isNear = isNear;
+  _markerMap[shop.id] = marker;
+  const walkHtml = walkMin ? `<div class="popup-walk">🚶 徒歩約${walkMin}分</div>` : '';
+  marker.bindPopup(`
+    <div class="popup-name">${shop.name}</div>
+    <div class="popup-pref">${shop.pref}${shop.city ? ' · ' + shop.city : ''}</div>
+    ${walkHtml}
+    <div style="margin-top:6px">${(shop.tags||[]).map(tagLabel).join(' ')}</div>
+    <button id="popup-fav-${shop.id}" class="popup-fav-btn" onclick="toggleFavorite(${shop.id})">♥ お気に入り</button>
+    ${myLat ? `<span class="popup-link" onclick="showRoute(${shop.lat},${shop.lng})">🚶 ルートを表示</span>` : ''}
+    <span class="popup-link" onclick="openModal(${shop.id})">詳細を見る →</span>
+  `, { maxWidth: 260 });
+  marker.on('popupopen', () => {
+    const btn = document.getElementById(`popup-fav-${shop.id}`);
+    if (!btn) return;
+    const isFav = _mapFavIds.has(Number(shop.id));
+    btn.textContent = isFav ? '♥ お気に入り済み' : '♥ お気に入り';
+    btn.classList.toggle('active', isFav);
+  });
+  if (isFavOrRev) favRevLayer.addLayer(marker);
+  else markerGroup.addLayer(marker);
+  return marker;
+}
+
+function _addViewportMarkers() {
+  if (!_allShopsForMap.length || !map) return;
+  const bounds = map.getBounds().pad(0.3); // 30%バッファ
+  const toAdd = [];
+  _allShopsForMap.forEach(shop => {
+    if (!shop.lat || !shop.lng) return;
+    if (_markerMap[shop.id]) return; // 既に生成済み
+    const isFavOrRev = _mapFavIds.has(Number(shop.id)) || _mapRevIds.has(Number(shop.id));
+    // fav/rev は常に生成、それ以外はビューポート内のみ
+    if (isFavOrRev || bounds.contains([shop.lat, shop.lng])) {
+      toAdd.push(shop);
+    }
+  });
+  // バッチ生成（UIブロックを防ぐため分割処理）
+  if (!toAdd.length) return;
+  const BATCH = 200;
+  let i = 0;
+  function next() {
+    const end = Math.min(i + BATCH, toAdd.length);
+    for (; i < end; i++) _createMarker(toAdd[i]);
+    if (i < toAdd.length) requestAnimationFrame(next);
+  }
+  requestAnimationFrame(next);
 }
 
 // ユーザーのお気に入り・評価をロードしてマーカーを色分け
