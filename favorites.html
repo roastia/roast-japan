@@ -91,11 +91,19 @@ nav a:hover{color:var(--gold);}
 .btn-unfav{position:absolute;top:8px;right:8px;background:rgba(255,255,255,.9);border:1px solid rgba(192,64,96,.3);color:#c04060;font-size:13px;width:28px;height:28px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;backdrop-filter:blur(4px);}
 .btn-unfav:hover{background:#c04060;color:#fff;border-color:#c04060;}
 
+/* ソートバー */
+.sort-bar{display:flex;align-items:center;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
+.sort-label{font-family:var(--mono);font-size:9px;letter-spacing:.12em;color:var(--text-dim);text-transform:uppercase;margin-right:4px;}
+.sort-btn{background:none;border:1px solid var(--border);color:var(--text-dim);font-family:var(--mono);font-size:10px;padding:4px 12px;border-radius:3px;cursor:pointer;transition:all .15s;}
+.sort-btn:hover{border-color:var(--border2);color:var(--cream);}
+.sort-btn.active{background:#6F4E37;border-color:#6F4E37;color:#fff;}
+
 /* 評価タブ固有 */
 .my-rating-row{display:flex;align-items:center;gap:6px;margin-bottom:.4rem;}
 .my-stars-display{color:#882D17;font-size:15px;letter-spacing:1px;}
 .my-rating-label{font-family:var(--mono);font-size:9px;color:var(--text-dim);}
 .card-memo{font-family:var(--serif);font-size:12px;color:var(--text-dim);line-height:1.5;border-top:1px solid var(--border);padding-top:.5rem;margin-top:.4rem;white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+.card-date{font-family:var(--mono);font-size:9px;color:var(--text-dim);margin-top:.5rem;letter-spacing:.05em;}
 .btn-del-review{position:absolute;top:8px;right:8px;background:rgba(255,255,255,.9);border:1px solid rgba(120,120,120,.3);color:#999;font-size:12px;width:28px;height:28px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;backdrop-filter:blur(4px);}
 .btn-del-review:hover{background:#888;color:#fff;border-color:#888;}
 
@@ -182,12 +190,17 @@ auth.onAuthStateChanged(async user => {
       db.collection('users').doc(user.uid).collection('reviews').get(),
     ]);
 
-    const favIds  = new Set(favsSnap.docs.map(d => String(d.id)));
-    const reviews = {};
+    const favIds   = new Set(favsSnap.docs.map(d => String(d.id)));
+    const favDates = {};
+    favsSnap.docs.forEach(d => { favDates[String(d.id)] = d.data().addedAt || null; });
+    const reviews  = {};
     revsSnap.docs.forEach(d => { reviews[String(d.id)] = d.data(); });
 
     const favShops = allShops.filter(s => favIds.has(String(s.id)));
-    const revShops = allShops.filter(s => reviews[String(s.id)] && reviews[String(s.id)].rating > 0);
+    const revShops = allShops.filter(s => {
+      const r = reviews[String(s.id)];
+      return r && (r.rating > 0 || r.memo || r.photoUrl);
+    });
 
     const name = user.displayName || user.email.split('@')[0];
     const photoHtml = user.photoURL
@@ -214,7 +227,7 @@ auth.onAuthStateChanged(async user => {
       <div class="tab-panel" id="panel-rev"></div>
     `;
 
-    renderFavPanel(favShops, user.uid);
+    renderFavPanel(favShops, favDates, user.uid);
     renderRevPanel(revShops, reviews, user.uid);
 
   } catch(e) {
@@ -230,8 +243,15 @@ function switchTab(name) {
   });
 }
 
+/* ── 日付フォーマット ── */
+function fmtDate(ts) {
+  if (!ts) return '';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+}
+
 /* ── お気に入りパネル ── */
-function renderFavPanel(shops, uid) {
+function renderFavPanel(shops, favDates, uid) {
   const panel = document.getElementById('panel-fav');
   if (!shops.length) {
     panel.innerHTML = `
@@ -246,18 +266,21 @@ function renderFavPanel(shops, uid) {
   const grid = document.createElement('div');
   grid.className = 'shops-grid';
   shops.forEach(shop => {
-    const card = makeFavCard(shop, uid);
+    const addedAt = favDates[String(shop.id)] || null;
+    const card = makeFavCard(shop, addedAt, uid);
     grid.appendChild(card);
   });
   panel.appendChild(grid);
 }
 
-function makeFavCard(shop, uid) {
+function makeFavCard(shop, addedAt, uid) {
   const stars = '★'.repeat(Math.round(shop.rating||0))+'☆'.repeat(5-Math.round(shop.rating||0));
   const tagHtml = makeTagHtml(shop.tags);
   const photo = makePhotoHtml(shop);
   const ratingHtml = shop.rating
     ? `<div class="card-google-rating"><span class="stars">${stars}</span> ${shop.rating}${shop.reviews?' ('+shop.reviews.toLocaleString()+'件)':''}</div>` : '';
+  const dateHtml = addedAt
+    ? `<div class="card-date">♥ ${fmtDate(addedAt)}</div>` : '';
 
   const card = document.createElement('div');
   card.className = 'shop-card';
@@ -269,6 +292,7 @@ function makeFavCard(shop, uid) {
       <div class="card-name">${escHtml(shop.name)}</div>
       <div class="card-tags">${tagHtml}</div>
       ${ratingHtml}
+      ${dateHtml}
     </div>`;
   card.addEventListener('click', () => goToShop(shop.id));
   return card;
@@ -287,6 +311,8 @@ async function removeFav(e, shopId, uid) {
 }
 
 /* ── 評価パネル ── */
+let _revSortKey = 'rating_desc';
+
 function renderRevPanel(shops, reviews, uid) {
   const panel = document.getElementById('panel-rev');
   if (!shops.length) {
@@ -299,29 +325,61 @@ function renderRevPanel(shops, reviews, uid) {
       </div>`;
     return;
   }
-  // 評価が高い順に並べる
-  const sorted = [...shops].sort((a,b) => (reviews[b.id]?.rating||0) - (reviews[a.id]?.rating||0));
+
+  // ソートバー
+  const sortBar = document.createElement('div');
+  sortBar.className = 'sort-bar';
+  sortBar.innerHTML = `
+    <span class="sort-label">並び替え</span>
+    <button class="sort-btn${_revSortKey==='rating_desc'?' active':''}" onclick="_setRevSort('rating_desc',this)">★ 高い順</button>
+    <button class="sort-btn${_revSortKey==='rating_asc'?' active':''}"  onclick="_setRevSort('rating_asc',this)">★ 低い順</button>
+    <button class="sort-btn${_revSortKey==='date_desc'?' active':''}"   onclick="_setRevSort('date_desc',this)">新しい順</button>`;
+
   const grid = document.createElement('div');
+  grid.id = 'rev-grid';
   grid.className = 'shops-grid';
-  sorted.forEach(shop => {
-    const rev = reviews[String(shop.id)] || {};
-    const card = makeRevCard(shop, rev, uid);
-    grid.appendChild(card);
-  });
+
+  function renderGrid() {
+    grid.innerHTML = '';
+    const sorted = [...shops].sort((a, b) => {
+      const ra = reviews[String(a.id)]?.rating || 0;
+      const rb = reviews[String(b.id)]?.rating || 0;
+      const ta = reviews[String(a.id)]?.updatedAt?.toMillis?.() || 0;
+      const tb = reviews[String(b.id)]?.updatedAt?.toMillis?.() || 0;
+      if (_revSortKey === 'rating_desc') return rb - ra;
+      if (_revSortKey === 'rating_asc')  return ra - rb;
+      return tb - ta; // date_desc
+    });
+    sorted.forEach(shop => {
+      const rev = reviews[String(shop.id)] || {};
+      grid.appendChild(makeRevCard(shop, rev, uid));
+    });
+  }
+
+  window._setRevSort = (key, btn) => {
+    _revSortKey = key;
+    sortBar.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderGrid();
+  };
+
+  renderGrid();
+  panel.appendChild(sortBar);
   panel.appendChild(grid);
 }
 
 function makeRevCard(shop, rev, uid) {
-  const myRating  = rev.rating   || 0;
-  const myMemo    = rev.memo     || '';
-  const myPhotoUrl = rev.photoUrl || '';
-  const myStars   = '★'.repeat(myRating)+'☆'.repeat(5-myRating);
-  const tagHtml   = makeTagHtml(shop.tags);
-  // マイ写真があればそちらを優先表示
+  const myRating   = rev.rating    || 0;
+  const myMemo     = rev.memo      || '';
+  const myPhotoUrl = rev.photoUrl  || '';
+  const myStars    = myRating > 0 ? '★'.repeat(myRating)+'☆'.repeat(5-myRating) : '';
+  const tagHtml    = makeTagHtml(shop.tags);
   const photo = myPhotoUrl
     ? `<img class="card-photo" src="${myPhotoUrl}" alt="${escHtml(shop.name)}" loading="lazy" onerror="this.outerHTML='<div class=card-photo-placeholder>☕</div>'">`
     : makePhotoHtml(shop);
-  const memoHtml = myMemo ? `<div class="card-memo">${escHtml(myMemo)}</div>` : '';
+  const memoHtml   = myMemo ? `<div class="card-memo">${escHtml(myMemo)}</div>` : '';
+  const starsHtml  = myStars ? `<span class="my-stars-display">${myStars}</span>` : '';
+  const dateHtml   = rev.updatedAt ? `<div class="card-date">★ ${fmtDate(rev.updatedAt)}</div>` : '';
 
   const card = document.createElement('div');
   card.className = 'shop-card';
@@ -332,11 +390,9 @@ function makeRevCard(shop, rev, uid) {
       <div class="card-pref">${shop.pref}${shop.city?' · '+shop.city:''}</div>
       <div class="card-name">${escHtml(shop.name)}</div>
       <div class="card-tags">${tagHtml}</div>
-      <div class="my-rating-row">
-        <span class="my-stars-display">${myStars}</span>
-        <span class="my-rating-label">あなたの評価</span>
-      </div>
+      ${starsHtml ? `<div class="my-rating-row">${starsHtml}<span class="my-rating-label">あなたの評価</span></div>` : ''}
       ${memoHtml}
+      ${dateHtml}
     </div>`;
   card.addEventListener('click', () => goToShop(shop.id));
   return card;
