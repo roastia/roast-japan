@@ -204,10 +204,10 @@ auth.onAuthStateChanged(async user => {
       </div>
       <div class="tabs">
         <button class="tab-btn active" id="tab-fav" onclick="switchTab('fav')">
-          ♡ お気に入り<span class="tab-count" id="fav-count">${favShops.length}</span>
+          <span style="color:#E53935">♡</span> お気に入り<span class="tab-count" id="fav-count">${favShops.length}</span>
         </button>
         <button class="tab-btn" id="tab-rev" onclick="switchTab('rev')">
-          ★ 評価済み<span class="tab-count" id="rev-count">${revShops.length}</span>
+          <span style="color:#FFB300">★</span> 評価済み<span class="tab-count" id="rev-count">${revShops.length}</span>
         </button>
       </div>
       <div class="tab-panel active" id="panel-fav"></div>
