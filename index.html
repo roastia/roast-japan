@@ -132,7 +132,10 @@ nav a:hover{color:var(--gold);}
 /* SHOP LIST */
 #section-list{padding:0 0 2rem;}
 .shop-grid{max-width:100%;margin:0 1rem;padding:0;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:6px;overflow:hidden;}
-.shop-card{background:var(--bg);border:none;cursor:pointer;transition:background .15s;text-align:left;display:flex;align-items:center;gap:0;border-bottom:1px solid var(--border);position:relative;min-height:48px;-webkit-tap-highlight-color:rgba(140,90,40,.1);}
+.shop-card{background:var(--bg);border:none;cursor:pointer;transition:background .15s;text-align:left;display:flex;align-items:center;gap:0;border-bottom:1px solid var(--border);position:relative;min-height:48px;-webkit-tap-highlight-color:rgba(140,90,40,.1);border-left:3px solid transparent;}
+.shop-card.mark-fav{border-left-color:#E53935;}
+.shop-card.mark-rev{border-left-color:#FFB300;}
+.shop-card.mark-both{border-left-color:#2E7D32;}
 .shop-card:last-child{border-bottom:none;}
 .shop-card:hover{background:var(--bg2);}
 .col-num{flex:0 0 40px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--text-dim);padding:0 0 0 12px;user-select:none;}
@@ -360,7 +363,6 @@ footer a:hover{color:var(--gold);}
     <div style="position:relative">
       <div id="map"></div>
       <div id="map-legend">
-        <div class="legend-row"><span class="legend-dot" style="background:#6F4E37"></span>通常</div>
         <div class="legend-row"><span class="legend-dot" style="background:#E53935"></span>お気に入り</div>
         <div class="legend-row"><span class="legend-dot" style="background:#FFB300"></span>評価済み</div>
         <div class="legend-row"><span class="legend-dot" style="background:#2E7D32"></span>両方</div>
@@ -872,7 +874,10 @@ function renderCards() {
     const dist = (myLat && shop.lat && shop.lng) ? distanceMeters(myLat,myLng,shop.lat,shop.lng) : null;
     const walkMin = dist ? walkMinutesFromDist(dist) : null;
     const card = document.createElement('div');
-    card.className = 'shop-card';
+    const isFav  = _mapFavIds.has(Number(shop.id));
+    const isRev  = _mapRevIds.has(Number(shop.id));
+    const markCls = (isFav && isRev) ? ' mark-both' : isFav ? ' mark-fav' : isRev ? ' mark-rev' : '';
+    card.className = 'shop-card' + markCls;
     card.onclick = () => { focusShopOnMap(shop.id); openModal(shop.id); };
     card.innerHTML = `
       <div class="col-num">${idx+1}</div>
