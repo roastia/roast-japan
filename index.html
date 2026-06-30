@@ -131,9 +131,9 @@ nav a:hover{color:var(--gold);}
 .popup-badge-walk{background:#f0f0f0;color:#555;}
 .popup-badge-visit{background:#e3f2fd;color:#1565C0;}
 .popup-divider{border:none;border-top:1px solid #f0f0f0;margin:10px 0 8px;}
-.popup-fav-btn{width:100%;background:#fff5f5;border:1.5px solid #ffcdd2;border-radius:6px;font-size:12px;font-weight:600;padding:7px 0;cursor:pointer;color:#c62828;transition:all .2s;font-family:var(--sans);}
+.popup-fav-btn{width:100%;background:#f5f5f5;border:1.5px solid #ddd;border-radius:6px;font-size:12px;font-weight:600;padding:7px 0;cursor:pointer;color:#aaa;transition:all .2s;font-family:var(--sans);}
 .popup-fav-btn.active{background:#ffebee;border-color:#E53935;color:#E53935;}
-.popup-fav-btn:hover{background:#ffebee;border-color:#E53935;}
+.popup-fav-btn:hover{background:#ffebee;border-color:#E53935;color:#E53935;}
 .popup-actions{display:flex;gap:6px;margin-top:6px;}
 .popup-link{flex:1;background:#f7f3ee;border:none;border-radius:6px;font-size:11px;font-weight:600;padding:7px 6px;cursor:pointer;text-align:center;font-family:var(--mono);color:#6F4E37;text-decoration:none;display:block;transition:background .15s;}
 .popup-link:hover{background:#ede5d5;color:#4a3020;}
@@ -964,6 +964,8 @@ function _refreshMarkerIcon(shopId) {
     if (inFavLayer) favRevLayer.removeLayer(m);
     markerGroup.addLayer(m);
   }
+  // レイヤー移動後にポップアップが再表示されたとき用に、popupopenで再同期
+  // ※移動でポップアップが閉じてもイベントハンドラは保持される
 }
 
 // リストの1枚のカードだけ色クラスを即時更新
@@ -1510,25 +1512,26 @@ async function saveReview(shopId) {
 
 async function toggleFavorite(shopId) {
   if (!currentUser) { openAuthModal(); return; }
-  const favBtn = document.getElementById('modal-fav-btn');
+  const favBtn   = document.getElementById('modal-fav-btn');
+  // await前に取得しないとポップアップが閉じた後に null になる
+  const popupBtn = document.getElementById(`popup-fav-${shopId}`);
   if (favBtn) { favBtn.style.opacity = '.4'; favBtn.style.pointerEvents = 'none'; }
   const ref = db.collection('users').doc(currentUser.uid).collection('favorites').doc(String(shopId));
   try {
     const doc = await ref.get();
-    const popupBtn = document.getElementById(`popup-fav-${shopId}`);
     if (doc.exists) {
       // 即座にUIを更新（Firestore完了を待たない）
       _mapFavIds.delete(Number(shopId));
-      if (favBtn) { favBtn.textContent='♡'; favBtn.classList.remove('active'); }
-      if (popupBtn) { popupBtn.textContent='♥ お気に入り'; popupBtn.classList.remove('active'); }
+      if (favBtn)    { favBtn.textContent='♡'; favBtn.classList.remove('active'); }
+      if (popupBtn)  { popupBtn.textContent='♥ お気に入り'; popupBtn.classList.remove('active'); }
       _refreshMarkerIcon(shopId);
       _refreshListCard(shopId);
       await ref.delete();
     } else {
       // 即座にUIを更新
       _mapFavIds.add(Number(shopId));
-      if (favBtn) { favBtn.textContent='♥'; favBtn.classList.add('active'); }
-      if (popupBtn) { popupBtn.textContent='♥ お気に入り済み'; popupBtn.classList.add('active'); }
+      if (favBtn)    { favBtn.textContent='♥'; favBtn.classList.add('active'); }
+      if (popupBtn)  { popupBtn.textContent='♥ お気に入り済み'; popupBtn.classList.add('active'); }
       _refreshMarkerIcon(shopId);
       _refreshListCard(shopId);
       await ref.set({ shopId, addedAt: firebase.firestore.FieldValue.serverTimestamp() });
