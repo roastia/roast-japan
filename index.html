@@ -591,6 +591,7 @@ let _selectedMarker = null; // 現在選択中のマーカー
 let _mapFavIds  = new Set(); // お気に入り店舗ID
 let _mapRevIds  = new Set(); // 評価済み店舗ID
 let _mapRevDates = {};       // 評価済み店舗の最終更新日時 {shopId: Date}
+let _mapVisitCounts = {};    // 来店回数 {shopId: number}
 
 let myLat = null, myLng = null;
 let myMarker = null, walkCircle = null, routeControl = null;
@@ -850,16 +851,24 @@ function _createMarker(shop) {
     <div class="popup-pref">${shop.pref}${shop.city ? ' · ' + shop.city : ''}</div>
     ${walkHtml}
     <div style="margin-top:6px">${(shop.tags||[]).map(tagLabel).join(' ')}</div>
+    <div id="popup-visit-${shop.id}" class="popup-walk" style="display:none;color:#1565C0">📍 来店 <span></span>回</div>
     <button id="popup-fav-${shop.id}" class="popup-fav-btn" onclick="event.stopPropagation();toggleFavorite(${shop.id})">♥ お気に入り</button>
     ${myLat ? `<span class="popup-link" onclick="showRoute(${shop.lat},${shop.lng})">🚶 ルートを表示</span>` : ''}
     <span class="popup-link" onclick="openModal(${shop.id})">詳細を見る →</span>
   `, { maxWidth: 260 });
   marker.on('popupopen', () => {
     const btn = document.getElementById(`popup-fav-${shop.id}`);
-    if (!btn) return;
-    const isFav = _mapFavIds.has(Number(shop.id));
-    btn.textContent = isFav ? '♥ お気に入り済み' : '♥ お気に入り';
-    btn.classList.toggle('active', isFav);
+    if (btn) {
+      const isFav = _mapFavIds.has(Number(shop.id));
+      btn.textContent = isFav ? '♥ お気に入り済み' : '♥ お気に入り';
+      btn.classList.toggle('active', isFav);
+    }
+    const visitEl = document.getElementById(`popup-visit-${shop.id}`);
+    if (visitEl) {
+      const cnt = _mapVisitCounts[Number(shop.id)];
+      if (cnt > 0) { visitEl.style.display = ''; visitEl.querySelector('span').textContent = cnt; }
+      else visitEl.style.display = 'none';
+    }
   });
   if (isFavOrRev) favRevLayer.addLayer(marker);
   else markerGroup.addLayer(marker);
@@ -900,13 +909,15 @@ async function loadUserMapData() {
     return;
   }
   try {
-    const [favSnap, revSnap] = await Promise.all([
+    const [favSnap, revSnap, vcSnap] = await Promise.all([
       db.collection('users').doc(currentUser.uid).collection('favorites').get(),
       db.collection('users').doc(currentUser.uid).collection('reviews').get(),
+      db.collection('users').doc(currentUser.uid).collection('visitCounts').get(),
     ]);
     _mapFavIds   = new Set(favSnap.docs.map(d => Number(d.id)));
     _mapRevIds   = new Set();
     _mapRevDates = {};
+    _mapVisitCounts = {};
     revSnap.docs.forEach(d => {
       const data = d.data();
       if (data.rating > 0 || data.memo || data.photoUrl) {
@@ -914,6 +925,9 @@ async function loadUserMapData() {
         _mapRevIds.add(id);
         if (data.updatedAt) _mapRevDates[id] = data.updatedAt.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt);
       }
+    });
+    vcSnap.docs.forEach(d => {
+      if (d.data().count > 0) _mapVisitCounts[Number(d.id)] = d.data().count;
     });
     if (ALL_SHOPS.length) { updateMarkers(ALL_SHOPS); renderCards(); }
   } catch(e) { console.warn('loadUserMapData', e); }
@@ -983,6 +997,7 @@ function renderCards() {
       <div class="col-walk">
         ${walkMin ? `<div>🚶${walkMin}分</div>` : ''}
         ${isRev && _mapRevDates[Number(shop.id)] ? `<div class="rev-date">${_fmtDateTime(_mapRevDates[Number(shop.id)])}</div>` : ''}
+        ${_mapVisitCounts[Number(shop.id)] > 0 ? `<div class="rev-date" style="color:#1565C0">📍${_mapVisitCounts[Number(shop.id)]}回</div>` : ''}
       </div>`;
     grid.appendChild(card);
   });
@@ -1438,6 +1453,9 @@ async function checkIn(shopId) {
     const newCount = updated.exists ? (updated.data().count || 1) : 1;
     if (countEl) countEl.textContent = `📍 来店回数: ${newCount}回`;
     if (btn) { btn.disabled = true; btn.textContent = '✅ チェックイン済み'; }
+    // グローバル更新 → リスト・ポップアップに即反映
+    _mapVisitCounts[Number(shopId)] = newCount;
+    renderCards();
 
     // トースト通知
     const toast = document.createElement('div');
