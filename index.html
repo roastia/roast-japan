@@ -958,14 +958,16 @@ function _refreshMarkerIcon(shopId) {
   const inFavLayer = favRevLayer.hasLayer(m);
   const inCluster  = markerGroup.hasLayer(m);
   if (isFavOrRev && !inFavLayer) {
+    const wasOpen = m.isPopupOpen();
     if (inCluster) markerGroup.removeLayer(m);
     favRevLayer.addLayer(m);
+    if (wasOpen) m.openPopup();
   } else if (!isFavOrRev && !inCluster) {
+    const wasOpen = m.isPopupOpen();
     if (inFavLayer) favRevLayer.removeLayer(m);
     markerGroup.addLayer(m);
+    if (wasOpen) m.openPopup();
   }
-  // レイヤー移動後にポップアップが再表示されたとき用に、popupopenで再同期
-  // ※移動でポップアップが閉じてもイベントハンドラは保持される
 }
 
 // リストの1枚のカードだけ色クラスを即時更新
