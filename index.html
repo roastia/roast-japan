@@ -732,9 +732,9 @@ function _markerColor(shopId) {
   const id = Number(shopId);
   const isFav = _mapFavIds.has(id);
   const isRev = _mapRevIds.has(id);
-  if (isFav && isRev) return '#1565C0'; // 両方: ディープブルー
-  if (isFav)          return '#1E88E5'; // お気に入り: ビビッドブルー
-  if (isRev)          return '#00ACC1'; // 評価済み: シアンブルー
+  if (isFav && isRev) return '#9C27B0'; // 両方: パープル
+  if (isFav)          return '#2196F3'; // お気に入り: ブルー
+  if (isRev)          return '#43A047'; // 評価済み: グリーン
   return '#6F4E37';                     // デフォルト: コーヒーブラウン
 }
 
