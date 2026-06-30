@@ -554,7 +554,7 @@ function _authErr(msg) {
 ════════════════════════ */
 const DATA_URL = 'shops.json';
 let ALL_SHOPS = [], filteredShops = [], displayedCount = 50;
-let map, markerGroup;
+let map, markerGroup, favRevLayer;
 let _markerMap = {};        // shopId → Leaflet marker
 let _selectedMarker = null; // 現在選択中のマーカー
 let _mapFavIds = new Set(); // お気に入り店舗ID
@@ -699,6 +699,8 @@ function initMap() {
       className: '', iconSize:[36,36], iconAnchor:[18,18],
     })
   }).addTo(map);
+  // お気に入り・評価済みは非クラスターレイヤー（常に個別表示）
+  favRevLayer = L.layerGroup().addTo(map);
 
   map.on('click', function(e) {
     myLat = e.latlng.lat; myLng = e.latlng.lng; locMode = 'map';
@@ -730,9 +732,9 @@ function _markerColor(shopId) {
   const id = Number(shopId);
   const isFav = _mapFavIds.has(id);
   const isRev = _mapRevIds.has(id);
-  if (isFav && isRev) return '#882D17'; // 両方: ダークレッド
-  if (isFav)          return '#c04060'; // お気に入り: ピンクレッド
-  if (isRev)          return '#e8a020'; // 評価済み: アンバー
+  if (isFav && isRev) return '#1565C0'; // 両方: ディープブルー
+  if (isFav)          return '#1E88E5'; // お気に入り: ビビッドブルー
+  if (isRev)          return '#00ACC1'; // 評価済み: シアンブルー
   return '#6F4E37';                     // デフォルト: コーヒーブラウン
 }
 
@@ -759,6 +761,7 @@ function makeMarkerIcon(shopId, isSelected, isNear) {
 
 function updateMarkers(shops) {
   markerGroup.clearLayers();
+  favRevLayer.clearLayers();
   _markerMap = {};
   _selectedMarker = null;
   if (!shops.length) return;
@@ -767,10 +770,14 @@ function updateMarkers(shops) {
     const dist = myLat ? distanceMeters(myLat, myLng, shop.lat, shop.lng) : null;
     const walkMin = dist ? walkMinutesFromDist(dist) : null;
     const isNear = dist && walkMinutes > 0 && dist <= walkToMeters(walkMinutes);
+    const isFavOrRev = _mapFavIds.has(Number(shop.id)) || _mapRevIds.has(Number(shop.id));
     const icon = makeMarkerIcon(shop.id, false, isNear);
-    const marker = L.marker([shop.lat, shop.lng], { icon });
-    marker._shopId   = shop.id;
-    marker._isNear   = isNear;
+    const marker = L.marker([shop.lat, shop.lng], {
+      icon,
+      zIndexOffset: isFavOrRev ? 1000 : 0
+    });
+    marker._shopId = shop.id;
+    marker._isNear = isNear;
     _markerMap[shop.id] = marker;
     const walkHtml = walkMin ? `<div class="popup-walk">🚶 徒歩約${walkMin}分</div>` : '';
     marker.bindPopup(`
@@ -781,7 +788,9 @@ function updateMarkers(shops) {
       ${myLat ? `<span class="popup-link" onclick="showRoute(${shop.lat},${shop.lng})">🚶 ルートを表示</span>` : ''}
       <span class="popup-link" onclick="openModal(${shop.id})">詳細を見る →</span>
     `, { maxWidth: 260 });
-    markerGroup.addLayer(marker);
+    // お気に入り・評価済みは非クラスターレイヤー、それ以外はクラスター
+    if (isFavOrRev) favRevLayer.addLayer(marker);
+    else markerGroup.addLayer(marker);
   });
 }
 
@@ -804,12 +813,23 @@ async function loadUserMapData() {
   } catch(e) { console.warn('loadUserMapData', e); }
 }
 
-// 指定店舗のマーカーアイコンだけ更新
+// 指定店舗のマーカーを更新（アイコン色 + レイヤー振り分け）
 function _refreshMarkerIcon(shopId) {
   const m = _markerMap[shopId];
   if (!m) return;
   const isSelected = (m === _selectedMarker);
   m.setIcon(makeMarkerIcon(shopId, isSelected, m._isNear));
+  // レイヤーの移動（お気に入り・評価状態が変わった場合）
+  const isFavOrRev = _mapFavIds.has(Number(shopId)) || _mapRevIds.has(Number(shopId));
+  const inFavLayer = favRevLayer.hasLayer(m);
+  const inCluster  = markerGroup.hasLayer(m);
+  if (isFavOrRev && !inFavLayer) {
+    if (inCluster) markerGroup.removeLayer(m);
+    favRevLayer.addLayer(m);
+  } else if (!isFavOrRev && !inCluster) {
+    if (inFavLayer) favRevLayer.removeLayer(m);
+    markerGroup.addLayer(m);
+  }
 }
 
 function tagLabel(t) {
