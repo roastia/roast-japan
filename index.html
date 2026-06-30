@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>roastia - 日本最大級の自家焙煎珈琲店データベース</title>
+<title>roastia - 日本最大級の珈琲店データベース</title>
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link rel="preconnect" href="https://www.gstatic.com">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -314,7 +314,7 @@ footer a:hover{color:var(--gold);}
 <header>
   <div class="header-left">
     <div class="logo">roastia</div>
-    <div class="header-sub">日本最大級の自家焙煎珈琲店データベース</div>
+    <div class="header-sub">日本最大級の珈琲店データベース</div>
     <div class="header-count"><span id="stat-total">—</span>店舗掲載中</div>
   </div>
   <nav>
@@ -323,7 +323,7 @@ footer a:hover{color:var(--gold);}
   </nav>
 </header>
 <div class="header-mobile-bar">
-  <span>日本最大級の自家焙煎珈琲店データベース</span>
+  <span>日本最大級の珈琲店データベース</span>
   <span><strong id="stat-total-mobile">—</strong>店舗掲載中</span>
 </div>
 
@@ -845,7 +845,7 @@ function _createMarker(shop) {
     <div class="popup-pref">${shop.pref}${shop.city ? ' · ' + shop.city : ''}</div>
     ${walkHtml}
     <div style="margin-top:6px">${(shop.tags||[]).map(tagLabel).join(' ')}</div>
-    <button id="popup-fav-${shop.id}" class="popup-fav-btn" onclick="toggleFavorite(${shop.id})">♥ お気に入り</button>
+    <button id="popup-fav-${shop.id}" class="popup-fav-btn" onclick="event.stopPropagation();toggleFavorite(${shop.id})">♥ お気に入り</button>
     ${myLat ? `<span class="popup-link" onclick="showRoute(${shop.lat},${shop.lng})">🚶 ルートを表示</span>` : ''}
     <span class="popup-link" onclick="openModal(${shop.id})">詳細を見る →</span>
   `, { maxWidth: 260 });
@@ -933,6 +933,18 @@ function _refreshMarkerIcon(shopId) {
   }
 }
 
+// リストの1枚のカードだけ色クラスを即時更新
+function _refreshListCard(shopId) {
+  const card = document.querySelector(`.shop-card[data-shop-id="${shopId}"]`);
+  if (!card) return;
+  const isFav = _mapFavIds.has(Number(shopId));
+  const isRev = _mapRevIds.has(Number(shopId));
+  card.classList.remove('mark-fav', 'mark-rev', 'mark-both');
+  if (isFav && isRev) card.classList.add('mark-both');
+  else if (isFav)     card.classList.add('mark-fav');
+  else if (isRev)     card.classList.add('mark-rev');
+}
+
 function tagLabel(t) {
   const m={specialty:'スペシャルティ',online:'通販あり',scaj:'SCAJ会員',cafe:'カフェ'};
   const c={specialty:'tag-specialty',online:'tag-online',scaj:'tag-scaj',cafe:'tag-cafe'};
@@ -954,6 +966,7 @@ function renderCards() {
     const isRev  = _mapRevIds.has(Number(shop.id));
     const markCls = (isFav && isRev) ? ' mark-both' : isFav ? ' mark-fav' : isRev ? ' mark-rev' : '';
     card.className = 'shop-card' + markCls;
+    card.dataset.shopId = shop.id;
     card.onclick = () => { focusShopOnMap(shop.id); openModal(shop.id); };
     card.innerHTML = `
       <div class="col-num">${idx+1}</div>
@@ -1352,17 +1365,22 @@ async function toggleFavorite(shopId) {
     const doc = await ref.get();
     const popupBtn = document.getElementById(`popup-fav-${shopId}`);
     if (doc.exists) {
-      await ref.delete();
+      // 即座にUIを更新（Firestore完了を待たない）
       _mapFavIds.delete(Number(shopId));
       if (favBtn) { favBtn.textContent='♡'; favBtn.classList.remove('active'); }
       if (popupBtn) { popupBtn.textContent='♥ お気に入り'; popupBtn.classList.remove('active'); }
+      _refreshMarkerIcon(shopId);
+      _refreshListCard(shopId);
+      await ref.delete();
     } else {
-      await ref.set({ shopId, addedAt: firebase.firestore.FieldValue.serverTimestamp() });
+      // 即座にUIを更新
       _mapFavIds.add(Number(shopId));
       if (favBtn) { favBtn.textContent='♥'; favBtn.classList.add('active'); }
       if (popupBtn) { popupBtn.textContent='♥ お気に入り済み'; popupBtn.classList.add('active'); }
+      _refreshMarkerIcon(shopId);
+      _refreshListCard(shopId);
+      await ref.set({ shopId, addedAt: firebase.firestore.FieldValue.serverTimestamp() });
     }
-    _refreshMarkerIcon(shopId);
   } catch(e) {
     console.error('toggle fav', e);
     alert('お気に入りの保存に失敗しました: ' + (e.code || e.message));
