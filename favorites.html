@@ -152,11 +152,27 @@ nav a:hover{color:var(--gold);}
 .btn-follow.following:hover{border-color:#c04060;color:#c04060;}
 
 /* URLシェアボタン */
-.btn-share-url{background:none;border:1px solid var(--border2);color:var(--text-dim);font-family:var(--sans);font-size:10px;padding:5px 12px;border-radius:3px;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.btn-share-url{background:none;border:1px solid var(--border2);color:var(--text-dim);font-family:var(--sans);font-size:10px;padding:5px 12px;border-radius:3px;cursor:pointer;transition:all .2s;white-space:nowrap;position:relative;}
 .btn-share-url:hover{border-color:var(--gold);color:var(--gold);}
+/* シェアドロップダウン */
+.share-dropdown{position:absolute;top:calc(100% + 8px);right:0;background:#fff;border:1px solid rgba(0,0,0,.12);border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.14);z-index:999;min-width:200px;overflow:hidden;display:none;}
+.share-dropdown.open{display:block;}
+.share-dropdown-title{font-family:var(--mono);font-size:9px;letter-spacing:.12em;color:#999;padding:10px 14px 6px;border-bottom:1px solid #f0f0f0;text-transform:uppercase;}
+.share-item{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;transition:background .15s;text-decoration:none;color:#333;font-family:var(--sans);font-size:12px;font-weight:600;}
+.share-item:hover{background:#f7f3ee;}
+.share-item-icon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.share-item-icon.line{background:#06C755;}
+.share-item-icon.x{background:#000;}
+.share-item-icon.fb{background:#1877F2;}
+.share-item-icon.copy{background:#f0f0f0;}
 
 /* 閲覧モードバナー */
 .view-mode-banner{background:rgba(111,78,55,.07);border:1px solid var(--border);border-radius:6px;padding:.6rem 1rem;margin-bottom:1.4rem;font-family:var(--sans);font-size:12px;color:var(--text-dim);letter-spacing:.05em;}
+
+/* 行ってみたいボタン */
+.btn-add-wish{background:#f3e5f5;border:1px solid #ce93d8;color:#7B1FA2;font-family:var(--sans);font-size:10px;font-weight:600;padding:5px 10px;border-radius:4px;cursor:pointer;transition:all .2s;margin-top:6px;display:inline-block;}
+.btn-add-wish:hover{background:#e1bee7;}
+.btn-add-wish:disabled{background:#f5f5f5;border-color:#ddd;color:#aaa;cursor:not-allowed;}
 
 .btn-del-review:hover{background:#888;color:#fff;border-color:#888;}
 
@@ -267,11 +283,12 @@ auth.onAuthStateChanged(async user => {
 /* ── 自分のページ ── */
 async function renderMyPage(user, content) {
   try {
-    const [favsSnap, revsSnap, vcSnap, followingSnap] = await Promise.all([
+    const [favsSnap, revsSnap, vcSnap, followingSnap, wishSnap] = await Promise.all([
       db.collection('users').doc(user.uid).collection('favorites').get(),
       db.collection('users').doc(user.uid).collection('reviews').get(),
       db.collection('users').doc(user.uid).collection('visitCounts').get(),
       db.collection('users').doc(user.uid).collection('following').get(),
+      db.collection('users').doc(user.uid).collection('wishlist').get(),
     ]);
 
     const favIds   = new Set(favsSnap.docs.map(d => String(d.id)));
@@ -282,8 +299,12 @@ async function renderMyPage(user, content) {
     const visitCounts = {};
     vcSnap.docs.forEach(d => { visitCounts[String(d.id)] = d.data().count || 0; });
     const following = followingSnap.docs.map(d => ({ uid: d.id, ...d.data() }));
+    const wishIds = new Set(wishSnap.docs.map(d => String(d.id)));
+    const wishDates = {};
+    wishSnap.docs.forEach(d => { wishDates[String(d.id)] = d.data().addedAt || null; });
 
     const favShops = allShops.filter(s => favIds.has(String(s.id)));
+    const wishShops = allShops.filter(s => wishIds.has(String(s.id)));
     const revShops = allShops.filter(s => {
       const r = reviews[String(s.id)];
       return r && (r.rating > 0 || r.memo || r.photoUrl);
@@ -310,7 +331,23 @@ async function renderMyPage(user, content) {
           </div>
           <div class="profile-email">${escHtml(user.email)}</div>
         </div>
-        <button class="btn-share-url" onclick="copyShareUrl('${escHtml(shareUrl)}')" title="URLをコピー">🔗 URLをシェア</button>
+        <button class="btn-share-url" onclick="toggleShareDropdown(event,'${escHtml(shareUrl)}')" title="シェア">🔗 URLをシェア
+          <div class="share-dropdown" id="share-dropdown">
+            <div class="share-dropdown-title">シェア先を選択</div>
+            <a class="share-item" id="share-line" href="#" target="_blank" rel="noopener">
+              <span class="share-item-icon line"><img src="https://upload.wikimedia.org/wikipedia/commons/4/41/LINE_logo.svg" width="18" height="18" alt="LINE"></span>LINE
+            </a>
+            <a class="share-item" id="share-x" href="#" target="_blank" rel="noopener">
+              <span class="share-item-icon x"><svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622 5.911-5.622Zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></span>X (Twitter)
+            </a>
+            <a class="share-item" id="share-fb" href="#" target="_blank" rel="noopener">
+              <span class="share-item-icon fb"><svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M24 12.073C24 5.445 18.627 0 12 0S0 5.445 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.97h-1.513c-1.491 0-1.956.93-1.956 1.886v2.268h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/></svg></span>Facebook
+            </a>
+            <div class="share-item" onclick="copyShareUrlInner()">
+              <span class="share-item-icon copy">🔗</span><span id="copy-label">URLをコピー</span>
+            </div>
+          </div>
+        </button>
       </div>
       <div class="tabs">
         <button class="tab-btn active" id="tab-fav" onclick="switchTab('fav')">
@@ -322,6 +359,9 @@ async function renderMyPage(user, content) {
         <button class="tab-btn" id="tab-friends" onclick="switchTab('friends')">
           👥 フレンド<span class="tab-count" id="friends-count">${following.length}</span>
         </button>
+        <button class="tab-btn" id="tab-wish" onclick="switchTab('wish')">
+          <span style="color:#7B1FA2">🏷</span> 行ってみたい<span class="tab-count" id="wish-count">${wishShops.length}</span>
+        </button>
       </div>
       <div class="view-toolbar">
         <button class="view-btn active" id="view-card" onclick="setViewMode('card')" title="カード表示">⊞</button>
@@ -330,11 +370,13 @@ async function renderMyPage(user, content) {
       <div class="tab-panel active" id="panel-fav"></div>
       <div class="tab-panel" id="panel-rev"></div>
       <div class="tab-panel" id="panel-friends"></div>
+      <div class="tab-panel" id="panel-wish"></div>
     `;
 
     renderFavPanel(favShops, favDates, user.uid);
     renderRevPanel(revShops, reviews, visitCounts, user.uid);
     renderFriendPanel(following, user.uid);
+    renderWishPanel(wishShops, wishDates, user.uid);
 
   } catch(e) {
     content.innerHTML = `<div class="loading" style="color:#c06040">読み込みに失敗しました。<br><span style="font-size:10px">${e.code || ''} ${e.message || String(e)}</span></div>`;
@@ -421,7 +463,7 @@ async function renderOtherPage(currentUser, targetUid, content) {
 }
 
 function switchTab(name) {
-  ['fav','rev','friends'].forEach(t => {
+  ['fav','rev','friends','wish'].forEach(t => {
     document.getElementById('tab-'+t)?.classList.toggle('active', t===name);
     document.getElementById('panel-'+t)?.classList.toggle('active', t===name);
   });
@@ -538,19 +580,36 @@ async function toggleFollow(targetUid, currentUid) {
 }
 
 /* ── URLシェア ── */
-async function copyShareUrl(url) {
-  try {
-    await navigator.clipboard.writeText(url);
-    const btn = document.querySelector('.btn-share-url');
-    if (btn) {
-      const orig = btn.textContent;
-      btn.textContent = '✓ コピーしました';
-      setTimeout(() => { btn.textContent = orig; }, 2000);
-    }
-  } catch(e) {
-    prompt('URLをコピーしてください', url);
-  }
+let _shareUrl = '';
+
+function toggleShareDropdown(e, url) {
+  e.stopPropagation();
+  _shareUrl = url;
+  const dd = document.getElementById('share-dropdown');
+  if (!dd) return;
+  const text = encodeURIComponent('roastiaで私のコーヒー店マップをシェアします ☕');
+  const enc  = encodeURIComponent(url);
+  document.getElementById('share-line').href = `https://social-plugins.line.me/lineit/share?url=${enc}&text=${text}`;
+  document.getElementById('share-x').href    = `https://x.com/intent/tweet?url=${enc}&text=${text}`;
+  document.getElementById('share-fb').href   = `https://www.facebook.com/sharer/sharer.php?u=${enc}`;
+  dd.classList.toggle('open');
 }
+
+async function copyShareUrlInner() {
+  try {
+    await navigator.clipboard.writeText(_shareUrl);
+    const label = document.getElementById('copy-label');
+    if (label) { label.textContent = '✓ コピーしました'; setTimeout(() => { label.textContent = 'URLをコピー'; }, 2000); }
+  } catch(e) {
+    prompt('URLをコピーしてください', _shareUrl);
+  }
+  document.getElementById('share-dropdown')?.classList.remove('open');
+}
+
+// ドロップダウン外クリックで閉じる
+document.addEventListener('click', () => {
+  document.getElementById('share-dropdown')?.classList.remove('open');
+});
 
 /* ── 読み取り専用パネル（他人ページ） ── */
 function renderFavPanelReadOnly(shops, favDates) {
@@ -583,6 +642,7 @@ function renderFavPanelReadOnly(shops, favDates) {
         <div class="card-tags">${tagHtml}</div>
         ${ratingHtml}
         ${dateHtml}
+        <button class="btn-add-wish" onclick="addToWishFromFriend(event,${shop.id})">🏷 行ってみたい</button>
       </div>`;
     card.addEventListener('click', () => goToShop(shop.id));
     grid.appendChild(card);
@@ -629,6 +689,7 @@ function renderRevPanelReadOnly(shops, reviews, visitCounts) {
         ${memoHtml}
         ${dateHtml}
         ${visitHtml}
+        <button class="btn-add-wish" onclick="addToWishFromFriend(event,${shop.id})">🏷 行ってみたい</button>
       </div>`;
     card.addEventListener('click', () => goToShop(shop.id));
     grid.appendChild(card);
@@ -900,6 +961,79 @@ async function uploadAvatar(input) {
     const el = document.getElementById('avatar-img');
     if (el) el.classList.remove('avatar-uploading');
     input.value = '';
+  }
+}
+
+/* ── 行ってみたいパネル ── */
+function renderWishPanel(shops, wishDates, uid) {
+  const panel = document.getElementById('panel-wish');
+  if (!shops.length) {
+    panel.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon" style="color:#7B1FA2;opacity:.7">🏷</div>
+        <div class="empty-title">行ってみたいお店はまだありません</div>
+        <div class="empty-sub">友達のページの 🏷 ボタンでリストに追加できます</div>
+        <a class="btn-go-map" href="index.html">店舗を探す</a>
+      </div>`;
+    return;
+  }
+  const grid = document.createElement('div');
+  grid.className = 'shops-grid';
+  shops.forEach(shop => {
+    const addedAt = wishDates[String(shop.id)] || null;
+    const stars = '★'.repeat(Math.round(shop.rating||0))+'☆'.repeat(5-Math.round(shop.rating||0));
+    const tagHtml = makeTagHtml(shop.tags);
+    const photo = makePhotoHtml(shop);
+    const ratingHtml = shop.rating
+      ? `<div class="card-google-rating"><span class="stars">${stars}</span> ${shop.rating}${shop.reviews?' ('+shop.reviews.toLocaleString()+'件)':''}</div>` : '';
+    const dateHtml = addedAt ? `<div class="card-date">🏷 ${fmtDate(addedAt)}</div>` : '';
+    const card = document.createElement('div');
+    card.className = 'shop-card';
+    card.innerHTML = `
+      ${photo}
+      <button class="btn-unfav" style="border-color:rgba(123,31,162,.3);color:#7B1FA2" onclick="deleteWish(event,'${shop.id}','${uid}')" title="リストから削除">✕</button>
+      <div class="card-body">
+        <div class="card-pref">${shop.pref}${shop.city?' · '+shop.city:''}</div>
+        <div class="card-name">${escHtml(shop.name)}</div>
+        <div class="card-tags">${tagHtml}</div>
+        ${ratingHtml}
+        ${dateHtml}
+      </div>`;
+    card.addEventListener('click', () => goToShop(shop.id));
+    grid.appendChild(card);
+  });
+  panel.appendChild(grid);
+}
+
+async function deleteWish(e, shopId, uid) {
+  e.stopPropagation();
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  try {
+    await db.collection('users').doc(uid).collection('wishlist').doc(String(shopId)).delete();
+    const card = btn.closest('.shop-card');
+    fadeRemove(card);
+    updateCount('wish-count', -1);
+  } catch(err) { btn.disabled = false; console.error(err); alert('削除に失敗しました'); }
+}
+
+async function addToWishFromFriend(e, shopId) {
+  e.stopPropagation();
+  const btn = e.currentTarget;
+  const currentUser = auth.currentUser;
+  if (!currentUser) { alert('ログインが必要です'); return; }
+  btn.disabled = true;
+  btn.textContent = '追加中...';
+  try {
+    await db.collection('users').doc(currentUser.uid).collection('wishlist').doc(String(shopId)).set({
+      addedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    btn.textContent = '✓ 追加済み';
+  } catch(err) {
+    console.error(err);
+    alert('追加に失敗しました');
+    btn.disabled = false;
+    btn.textContent = '🏷 行ってみたい';
   }
 }
 

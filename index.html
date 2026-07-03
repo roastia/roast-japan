@@ -221,6 +221,9 @@ nav a:hover{color:var(--gold);}
 .review-memo:focus{border-color:var(--gold-dim);}
 .btn-save-review{background:#6F4E37;color:#fff;border:none;font-family:var(--sans);font-size:11px;font-weight:600;padding:7px 18px;border-radius:4px;cursor:pointer;transition:opacity .2s;}
 .btn-save-review:hover{opacity:.85;}
+.btn-wish{width:100%;background:#f3e5f5;border:1.5px solid #ce93d8;border-radius:6px;font-size:11px;font-weight:600;padding:7px 0;cursor:pointer;color:#7B1FA2;transition:all .2s;font-family:var(--sans);}
+.btn-wish.active{background:#e1bee7;border-color:#7B1FA2;}
+.btn-wish:hover{background:#e1bee7;border-color:#7B1FA2;}
 .checkin-wrap{margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--border);display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;}
 .checkin-count{font-family:var(--mono);font-size:11px;color:var(--text-dim);flex:1;min-width:100px;}
 .btn-checkin{background:#1565C0;color:#fff;border:none;font-family:var(--sans);font-size:11px;font-weight:600;padding:7px 14px;border-radius:4px;cursor:pointer;transition:opacity .2s;white-space:nowrap;}
@@ -389,6 +392,7 @@ footer a:hover{color:var(--gold);}
         <div class="legend-row"><span class="legend-dot" style="background:#E53935"></span>お気に入り</div>
         <div class="legend-row"><span class="legend-dot" style="background:#FFB300"></span>評価済み</div>
         <div class="legend-row"><span class="legend-dot" style="background:#2E7D32"></span>両方</div>
+        <div class="legend-row"><span class="legend-dot" style="background:#7B1FA2"></span>行ってみたい</div>
       </div>
     </div>
   </section>
@@ -606,6 +610,7 @@ let _mapFavIds  = new Set(); // お気に入り店舗ID
 let _mapRevIds  = new Set(); // 評価済み店舗ID
 let _mapRevDates = {};       // 評価済み店舗の最終更新日時 {shopId: Date}
 let _mapVisitCounts = {};    // 来店回数 {shopId: number}
+let _mapWishIds = new Set(); // 行ってみたい店舗ID
 
 let myLat = null, myLng = null;
 let myMarker = null, walkCircle = null, routeControl = null;
@@ -632,7 +637,8 @@ function _fmtAddress(addr) {
     .replace(/[Ａ-Ｚａ-ｚ０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)) // 全角英数→半角
     .replace(/[－―ー]/g, '-')                                                  // 全角ハイフン系→半角
     .replace(/（/g, '(').replace(/）/g, ')')                                   // 全角括弧→半角
-    .replace(/　/g, ' ');                                                       // 全角スペース→半角
+    .replace(/　/g, ' ')                                                        // 全角スペース→半角
+    .replace(/(〒\d{3}-\d{4})\s*/, '$1<br>');                                  // 郵便番号後に改行
 }
 
 function _fmtDateTime(d) {
@@ -822,6 +828,7 @@ function _markerColor(shopId) {
   if (isFav && isRev) return '#2E7D32'; // 両方: グリーン
   if (isFav)          return '#E53935'; // お気に入り: ハートレッド
   if (isRev)          return '#FFB300'; // 評価済み: スターイエロー
+  if (_mapWishIds.has(id)) return '#7B1FA2'; // 行ってみたい: パープル
   return '#6F4E37';                     // デフォルト: コーヒーブラウン
 }
 
@@ -864,7 +871,7 @@ function _createMarker(shop) {
   const dist = myLat ? distanceMeters(myLat, myLng, shop.lat, shop.lng) : null;
   const walkMin = dist ? walkMinutesFromDist(dist) : null;
   const isNear = dist && walkMinutes > 0 && dist <= walkToMeters(walkMinutes);
-  const isFavOrRev = _mapFavIds.has(Number(shop.id)) || _mapRevIds.has(Number(shop.id));
+  const isFavOrRev = _mapFavIds.has(Number(shop.id)) || _mapRevIds.has(Number(shop.id)) || _mapWishIds.has(Number(shop.id));
   const icon = makeMarkerIcon(shop.id, false, isNear);
   const marker = L.marker([shop.lat, shop.lng], {
     icon,
@@ -920,7 +927,7 @@ function _addViewportMarkers() {
   _allShopsForMap.forEach(shop => {
     if (!shop.lat || !shop.lng) return;
     if (_markerMap[shop.id]) return; // 既に生成済み
-    const isFavOrRev = _mapFavIds.has(Number(shop.id)) || _mapRevIds.has(Number(shop.id));
+    const isFavOrRev = _mapFavIds.has(Number(shop.id)) || _mapRevIds.has(Number(shop.id)) || _mapWishIds.has(Number(shop.id));
     // fav/rev は常に生成、それ以外はビューポート内のみ
     if (isFavOrRev || bounds.contains([shop.lat, shop.lng])) {
       toAdd.push(shop);
@@ -947,15 +954,17 @@ async function loadUserMapData() {
     return;
   }
   try {
-    const [favSnap, revSnap, vcSnap] = await Promise.all([
+    const [favSnap, revSnap, vcSnap, wishSnap] = await Promise.all([
       db.collection('users').doc(currentUser.uid).collection('favorites').get(),
       db.collection('users').doc(currentUser.uid).collection('reviews').get(),
       db.collection('users').doc(currentUser.uid).collection('visitCounts').get(),
+      db.collection('users').doc(currentUser.uid).collection('wishlist').get(),
     ]);
     _mapFavIds   = new Set(favSnap.docs.map(d => Number(d.id)));
     _mapRevIds   = new Set();
     _mapRevDates = {};
     _mapVisitCounts = {};
+    _mapWishIds  = new Set(wishSnap.docs.map(d => Number(d.id)));
     revSnap.docs.forEach(d => {
       const data = d.data();
       if (data.rating > 0 || data.memo || data.photoUrl) {
@@ -978,7 +987,7 @@ function _refreshMarkerIcon(shopId) {
   const isSelected = (m === _selectedMarker);
   m.setIcon(makeMarkerIcon(shopId, isSelected, m._isNear));
   // レイヤーの移動（お気に入り・評価状態が変わった場合）
-  const isFavOrRev = _mapFavIds.has(Number(shopId)) || _mapRevIds.has(Number(shopId));
+  const isFavOrRev = _mapFavIds.has(Number(shopId)) || _mapRevIds.has(Number(shopId)) || _mapWishIds.has(Number(shopId));
   const inFavLayer = favRevLayer.hasLayer(m);
   const inCluster  = markerGroup.hasLayer(m);
   // ポップアップ表示中はレイヤー移動しない（消えるのを防ぐ）
@@ -1322,6 +1331,11 @@ function _renderRatingSection(shopId, rating, memo, photoUrl) {
     <div class="star-row" id="star-row">${starsHtml}</div>
     <textarea class="review-memo" id="review-memo" placeholder="メモ（自分だけに見えます）">${memo}</textarea>
     <button class="btn-save-review" onclick="saveReview(${shopId})">保存</button>
+    <div style="margin-top:.8rem">
+      <button id="wish-btn" class="btn-wish${_mapWishIds.has(Number(shopId))?' active':''}" onclick="toggleWishlist(${shopId})">
+        ${_mapWishIds.has(Number(shopId)) ? '🏷 行ってみたいリスト済み' : '🏷 行ってみたいリストに追加'}
+      </button>
+    </div>
     <div class="checkin-wrap">
       <span class="checkin-count" id="checkin-count">📍 来店回数: —</span>
       <button class="btn-checkin" id="checkin-btn" onclick="checkIn(${shopId})">📍 チェックイン</button>
@@ -1424,6 +1438,35 @@ function _restoreStars() {
 function setStarRating(n) {
   _currentRating = n;
   document.querySelectorAll('#star-row .star-btn').forEach((b,i) => b.classList.toggle('active', i<n));
+}
+
+async function toggleWishlist(shopId) {
+  if (!currentUser) { openAuthModal(); return; }
+  const btn = document.getElementById('wish-btn');
+  const wasWish = _mapWishIds.has(Number(shopId));
+  const ref = db.collection('users').doc(currentUser.uid).collection('wishlist').doc(String(shopId));
+
+  // 即座にUI更新
+  if (wasWish) {
+    _mapWishIds.delete(Number(shopId));
+    if (btn) { btn.textContent='🏷 行ってみたいリストに追加'; btn.classList.remove('active'); }
+  } else {
+    _mapWishIds.add(Number(shopId));
+    if (btn) { btn.textContent='🏷 行ってみたいリスト済み'; btn.classList.add('active'); }
+  }
+  _refreshMarkerIcon(shopId);
+  _refreshListCard(shopId);
+
+  try {
+    if (wasWish) { await ref.delete(); }
+    else { await ref.set({ shopId: Number(shopId), addedAt: firebase.firestore.FieldValue.serverTimestamp() }); }
+  } catch(e) {
+    // ロールバック
+    if (wasWish) { _mapWishIds.add(Number(shopId)); } else { _mapWishIds.delete(Number(shopId)); }
+    if (btn) { btn.textContent=wasWish?'🏷 行ってみたいリスト済み':'🏷 行ってみたいリストに追加'; btn.classList.toggle('active',wasWish); }
+    _refreshMarkerIcon(shopId); _refreshListCard(shopId);
+    console.error('wishlist', e);
+  }
 }
 
 async function checkIn(shopId) {
@@ -1539,34 +1582,42 @@ async function saveReview(shopId) {
 async function toggleFavorite(shopId) {
   if (!currentUser) { openAuthModal(); return; }
   const favBtn   = document.getElementById('modal-fav-btn');
-  // await前に取得しないとポップアップが閉じた後に null になる
   const popupBtn = document.getElementById(`popup-fav-${shopId}`);
-  if (favBtn) { favBtn.style.opacity = '.4'; favBtn.style.pointerEvents = 'none'; }
+  const wasFav   = _mapFavIds.has(Number(shopId));
+
+  // ① 即座にUIを更新（Firestoreを待たない）
+  if (wasFav) {
+    _mapFavIds.delete(Number(shopId));
+    if (favBtn)   { favBtn.textContent='♡'; favBtn.classList.remove('active'); }
+    if (popupBtn) { popupBtn.textContent='♥ お気に入り'; popupBtn.classList.remove('active'); }
+  } else {
+    _mapFavIds.add(Number(shopId));
+    if (favBtn)   { favBtn.textContent='♥'; favBtn.classList.add('active'); }
+    if (popupBtn) { popupBtn.textContent='♥ お気に入り済み'; popupBtn.classList.add('active'); }
+  }
+  _refreshMarkerIcon(shopId);
+  _refreshListCard(shopId);
+  if (favBtn) favBtn.style.pointerEvents = 'none';
+
+  // ② Firestoreに書き込み（失敗時はロールバック）
   const ref = db.collection('users').doc(currentUser.uid).collection('favorites').doc(String(shopId));
   try {
-    const doc = await ref.get();
-    if (doc.exists) {
-      // 即座にUIを更新（Firestore完了を待たない）
-      _mapFavIds.delete(Number(shopId));
-      if (favBtn)    { favBtn.textContent='♡'; favBtn.classList.remove('active'); }
-      if (popupBtn)  { popupBtn.textContent='♥ お気に入り'; popupBtn.classList.remove('active'); }
-      _refreshMarkerIcon(shopId);
-      _refreshListCard(shopId);
+    if (wasFav) {
       await ref.delete();
     } else {
-      // 即座にUIを更新
-      _mapFavIds.add(Number(shopId));
-      if (favBtn)    { favBtn.textContent='♥'; favBtn.classList.add('active'); }
-      if (popupBtn)  { popupBtn.textContent='♥ お気に入り済み'; popupBtn.classList.add('active'); }
-      _refreshMarkerIcon(shopId);
-      _refreshListCard(shopId);
       await ref.set({ shopId, addedAt: firebase.firestore.FieldValue.serverTimestamp() });
     }
   } catch(e) {
+    // ロールバック
+    if (wasFav) { _mapFavIds.add(Number(shopId)); } else { _mapFavIds.delete(Number(shopId)); }
+    if (favBtn)   { favBtn.textContent=wasFav?'♥':'♡'; favBtn.classList.toggle('active',wasFav); }
+    if (popupBtn) { popupBtn.textContent=wasFav?'♥ お気に入り済み':'♥ お気に入り'; popupBtn.classList.toggle('active',wasFav); }
+    _refreshMarkerIcon(shopId);
+    _refreshListCard(shopId);
     console.error('toggle fav', e);
-    alert('お気に入りの保存に失敗しました: ' + (e.code || e.message));
+    alert('お気に入りの保存に失敗しました');
   } finally {
-    if (favBtn) { favBtn.style.opacity = ''; favBtn.style.pointerEvents = ''; }
+    if (favBtn) favBtn.style.pointerEvents = '';
   }
 }
 
