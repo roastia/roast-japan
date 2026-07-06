@@ -355,11 +355,10 @@ footer a:hover{color:var(--gold);}
     border-bottom: none;
   }
 
-  /* マップを全幅に（中間divも含め絶対配置で高さを確定） */
-  #section-map                             { position: absolute; inset: 0; }
-  #section-map .section-header            { display: none; }
-  #section-map > div:not(.section-header) { position: absolute !important; inset: 0; }
-  #map                                     { position: absolute !important; inset: 0; height: auto !important; }
+  /* マップを全幅に（シンプルに高さをcalcで直接指定） */
+  #section-map            { display: block; position: relative; }
+  #section-map .section-header { display: none; }
+  #map                    { height: calc(100vh - var(--panel-top, 106px)) !important; min-height: unset; }
 
   /* 店舗一覧パネル（常時表示） */
   #section-list {
@@ -1746,7 +1745,8 @@ function _setPanelTop() {
   if (!search) return;
   const top = Math.ceil(search.getBoundingClientRect().bottom);
   document.documentElement.style.setProperty('--panel-top', top + 'px');
-  if (map) setTimeout(() => map.invalidateSize(), 50);
+  // Leafletにサイズ変更を通知（レイアウト確定後）
+  if (map) setTimeout(() => map.invalidateSize(), 200);
 }
 window.addEventListener('resize', _setPanelTop);
 
