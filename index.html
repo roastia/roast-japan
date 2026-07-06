@@ -274,22 +274,23 @@ footer a:hover{color:var(--gold);}
 
 /* ═══ スマホ (max-width: 640px) ═══ */
 @media (max-width: 640px) {
-  header { padding: 0 1rem; height: 52px; }
+  header { padding: 0 .8rem; height: 52px; }
   .header-sub { display: none; }
-  .header-count { display: none; }
-  .header-mobile-bar { display: flex; }
+  .header-count { display: block; font-size: 9px; line-height: 1.2; }
+  .header-count span { font-size: 11px; }
+  .header-mobile-bar { display: none; }   /* 「日本最大級…」バーを非表示 */
   .logo { font-size: 11px; letter-spacing: .15em; }
-  nav { gap: .8rem; }
-  nav a { font-size: 10px; letter-spacing: .08em; }
+  nav { gap: .6rem; }
+  nav a { font-size: 10px; letter-spacing: .06em; }
   .btn-login { font-size: 10px; padding: 4px 10px; }
-  .search-section { padding: .6rem .8rem; top: 86px; }
+  .search-section { padding: .5rem .8rem; top: 52px; } /* mobile-bar がなくなった分 */
   .search-box input { font-size: 13px; }
   .result-count { font-size: 9px; }
   .location-bar { gap: 6px; margin-top: .6rem; }
-  .btn-locate { font-size: 10px; padding: 6px 12px; }
-  .addr-search { min-width: 0; width: 100%; }
+  .btn-locate { font-size: 10px; padding: 6px 10px; flex-shrink: 0; }
+  .addr-search { min-width: 0; width: auto; flex: 1; } /* 100%→flex:1 で現在地と同じ行 */
   .addr-input { font-size: 13px; }
-  .btn-addr { font-size: 10px; padding: 6px 10px; }
+  .btn-addr { font-size: 10px; padding: 6px 8px; white-space: nowrap; }
   .location-status { font-size: 9px; }
   #map { height: 320px; min-height: 320px; }
   .shop-grid { margin: 0 .5rem; }
