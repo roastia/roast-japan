@@ -450,7 +450,7 @@ footer a:hover{color:var(--gold);}
       <div id="auth-name-row" style="display:none">
         <input class="auth-input" id="auth-name" type="text" placeholder="表示名（任意）">
       </div>
-      <input class="auth-input" id="auth-password" type="password" placeholder="パスワード（6文字以上）" onkeydown="if(event.key==='Enter')doEmailAuth()">
+      <input class="auth-input" id="auth-password" type="text" autocomplete="new-password" placeholder="パスワード（6文字以上）" onkeydown="if(event.key==='Enter')doEmailAuth()">
       <button class="btn-auth-submit" id="auth-submit-btn" onclick="doEmailAuth()">ログイン</button>
       <div class="auth-sep">または</div>
       <button class="btn-google" onclick="doGoogleLogin()">
@@ -525,6 +525,9 @@ function _updateLoginBtn() {
 let _authMode = 'login';
 
 function openAuthModal() {
+  // type="password" を開くときだけセット → Safari の Keychain スキャンを防ぐ
+  const pw = document.getElementById('auth-password');
+  pw.type = 'password';
   document.getElementById('auth-overlay').classList.add('open');
   document.body.style.overflow = 'hidden';
   currentUser ? _showLoggedInView() : _showAuthForm('login');
@@ -533,6 +536,10 @@ function closeAuthModal(e) {
   if (e && e.target !== document.getElementById('auth-overlay')) return;
   document.getElementById('auth-overlay').classList.remove('open');
   document.body.style.overflow = '';
+  // 閉じたら type を text に戻して Keychain に検出されないようにする
+  const pw = document.getElementById('auth-password');
+  pw.type = 'text';
+  pw.value = '';
 }
 function _showLoggedInView() {
   document.getElementById('auth-view-form').style.display = 'none';
