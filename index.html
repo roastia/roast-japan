@@ -348,18 +348,26 @@ footer a:hover{color:var(--gold);}
 
   /* マップコンテナ */
   .map-list-wrap {
-    display: block;
+    display: flex;
+    align-items: stretch;
     position: relative;
     height: calc(100vh - var(--panel-top, 106px));
     overflow: hidden;
     border-bottom: none;
   }
 
-  /* マップを全幅に（絶対配置チェーンで高さを確定） */
-  #section-map                             { position: absolute; inset: 0; overflow: hidden; }
-  #section-map .section-header            { display: none; }
-  #section-map > div:not(.section-header) { position: absolute !important; inset: 0; }
-  #map                                     { height: 100% !important; min-height: unset; }
+  /* マップ：flex:1で高さを確定（%継承チェーンが確実に通る） */
+  #section-map {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  #section-map .section-header { display: none; }
+  #section-map > div:not(.section-header) { flex: 1; min-height: 0; position: relative; }
+  #map { height: 100% !important; min-height: unset; }
 
   /* 店舗一覧パネル（常時表示） */
   #section-list {
@@ -890,6 +898,17 @@ function initUI() {
 function init() { initMap(); loadShops(); }
 
 function initMap() {
+  // PC: Leaflet初期化前にマップの高さをピクセルで確定（height:100%の計算基準を作る）
+  if (window.innerWidth > 640) {
+    const search = document.querySelector('.search-section');
+    const mapEl  = document.getElementById('map');
+    if (search && mapEl) {
+      const h = window.innerHeight - Math.ceil(search.getBoundingClientRect().bottom);
+      mapEl.style.setProperty('height', h + 'px', 'important');
+      const wrap = document.querySelector('.map-list-wrap');
+      if (wrap) wrap.style.height = h + 'px';
+    }
+  }
   map = L.map('map', { center:[36.2,138.0], zoom:5, zoomControl:true, attributionControl:false });
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:18 }).addTo(map);
   markerGroup = L.markerClusterGroup({
@@ -995,37 +1014,20 @@ function _createMarker(shop) {
   _markerMap[shop.id] = marker;
   const walkBadge = walkMin ? `<span class="popup-badge popup-badge-walk">🚶 ${walkMin}分</span>` : '';
   const tagBadges = (shop.tags||[]).map(tagLabel).join('');
+  // ホバー専用のシンプルなツールチップポップアップ
   marker.bindPopup(`
-    <div class="popup-inner">
+    <div class="popup-inner popup-hover">
       <div class="popup-name">${shop.name}</div>
       <div class="popup-pref">${shop.pref}${shop.city ? ' · ' + shop.city : ''}</div>
-      <div class="popup-meta">
-        ${tagBadges}
-        ${walkBadge}
-        <span id="popup-visit-${shop.id}" class="popup-badge popup-badge-visit" style="display:none">📍 <span></span>回</span>
-      </div>
-      <hr class="popup-divider">
-      <button id="popup-fav-${shop.id}" class="popup-fav-btn" onclick="event.stopPropagation();toggleFavorite(${shop.id})">♥ お気に入り</button>
-      <div class="popup-actions">
-        ${myLat ? `<span class="popup-link" onclick="showRoute(${shop.lat},${shop.lng})">🚶 ルート</span>` : ''}
-        <span class="popup-link" onclick="openModal(${shop.id})">詳細を見る →</span>
-      </div>
+      ${tagBadges || walkBadge ? `<div class="popup-meta">${tagBadges}${walkBadge}</div>` : ''}
     </div>
-  `, { maxWidth: 240 });
-  marker.on('popupopen', () => {
-    const btn = document.getElementById(`popup-fav-${shop.id}`);
-    if (btn) {
-      const isFav = _mapFavIds.has(Number(shop.id));
-      btn.textContent = isFav ? '♥ お気に入り済み' : '♥ お気に入り';
-      btn.classList.toggle('active', isFav);
-    }
-    const visitEl = document.getElementById(`popup-visit-${shop.id}`);
-    if (visitEl) {
-      const cnt = _mapVisitCounts[Number(shop.id)];
-      if (cnt > 0) { visitEl.style.display = ''; visitEl.querySelector('span').textContent = cnt; }
-      else visitEl.style.display = 'none';
-    }
-  });
+  `, { maxWidth: 220, autoPan: false });
+  // クリックでデフォルトのポップアップ開閉を無効化し、モーダルを直接開く
+  marker.off('click');
+  marker.on('click', () => openModal(shop.id));
+  // マウスオーバー時のみポップアップを表示
+  marker.on('mouseover', function() { this.openPopup(); });
+  marker.on('mouseout', function() { this.closePopup(); });
   // ポップアップを閉じた後に保留していたレイヤー移動を実行
   marker.on('popupclose', () => { _refreshMarkerIcon(shop.id); });
   if (isFavOrRev) favRevLayer.addLayer(marker);
