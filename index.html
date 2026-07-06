@@ -335,9 +335,106 @@ footer a:hover{color:var(--gold);}
   footer { padding: 1.5rem 1rem; font-size: 10px; }
 }
 @media (min-width: 641px) and (max-width: 900px) {
-  #map { height: 400px; }
   .modal-info { grid-template-columns: 1fr; }
   .addr-search { min-width: 180px; }
+}
+
+/* ═══════════════════════════════════════════════════
+   PC：Google Maps スタイル フルスクリーンレイアウト
+═══════════════════════════════════════════════════ */
+@media (min-width: 641px) {
+  /* ページスクロール無効 → マップが全画面 */
+  html, body { height: 100%; overflow: hidden; }
+  footer { display: none; }
+
+  /* マップコンテナをフルスクリーンに */
+  .map-list-wrap {
+    display: block;
+    position: relative;
+    height: calc(100vh - var(--panel-top, 106px));
+    overflow: hidden;
+    border-bottom: none;
+  }
+
+  /* マップを全幅に展開 */
+  #section-map { position: absolute; inset: 0; flex: none; }
+  #section-map .section-header { display: none; }
+  #map { height: 100% !important; min-height: unset; }
+
+  /* ─── 左サイドパネル（店舗一覧） ─── */
+  #section-list {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 380px;
+    max-height: none;
+    background: rgba(250,247,243,0.95);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-right: 1px solid rgba(111,78,55,.12);
+    box-shadow: 4px 0 24px rgba(61,32,16,.1);
+    z-index: 100;
+    overflow-y: auto;
+    overflow-x: hidden;
+    transition: transform .3s cubic-bezier(.4,0,.2,1);
+  }
+  #section-list.panel-hidden {
+    transform: translateX(-100%);
+    pointer-events: none;
+  }
+  #section-list .section-header {
+    position: sticky; top: 0; z-index: 2;
+    background: rgba(250,247,243,0.98);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(8px);
+  }
+
+  /* ─── 詳細スライドパネル（モーダルをPC用に変換） ─── */
+  .modal-overlay {
+    background: transparent !important;
+    pointer-events: none !important;
+  }
+  .modal-overlay.open { pointer-events: none !important; }
+  .modal {
+    position: fixed !important;
+    left: 0 !important;
+    top: var(--panel-top, 106px) !important;
+    bottom: 0 !important;
+    right: auto !important;
+    width: 380px !important;
+    max-width: 380px !important;
+    height: auto !important;
+    max-height: none !important;
+    border-radius: 0 !important;
+    border: none !important;
+    border-right: 1px solid rgba(111,78,55,.12) !important;
+    box-shadow: 4px 0 24px rgba(61,32,16,.14) !important;
+    transform: translateX(-380px);
+    transition: transform .3s cubic-bezier(.4,0,.2,1);
+    pointer-events: all;
+    margin: 0 !important;
+  }
+  .modal-overlay.open .modal { transform: translateX(0) !important; }
+  .modal-tap-close { display: none !important; }
+  .modal-drag-bar  { display: none !important; }
+
+  /* ← 一覧へ ボタン（✕の代わり） */
+  .modal-close {
+    left: 1rem !important; right: auto !important; top: .8rem !important;
+    width: auto !important; height: auto !important;
+    padding: 5px 14px !important;
+    border-radius: 20px !important;
+    background: rgba(111,78,55,.08) !important;
+    border: 1px solid var(--border2) !important;
+    font-size: 0 !important;
+  }
+  .modal-close::after {
+    content: '← 一覧へ';
+    font-size: 11px;
+    font-family: var(--sans);
+    font-weight: 600;
+    letter-spacing: .05em;
+    color: var(--text);
+  }
 }
 </style>
 </head>
@@ -1206,7 +1303,12 @@ function _openModalWith(shop) {
     </div>`;
 
   document.getElementById('modal-overlay').classList.add('open');
-  document.body.style.overflow = 'hidden';
+  if (window.innerWidth <= 640) {
+    document.body.style.overflow = 'hidden';
+  } else {
+    // PC: サイドリストを隠してスライドパネルを表示
+    document.getElementById('section-list').classList.add('panel-hidden');
+  }
   loadModalUserData(id);
 }
 
@@ -1221,7 +1323,12 @@ function closeModal(e) {
     if (!inside && !isTapClose && !isOverlay) return;
   }
   document.getElementById('modal-overlay').classList.remove('open');
-  document.body.style.overflow = '';
+  if (window.innerWidth <= 640) {
+    document.body.style.overflow = '';
+  } else {
+    // PC: サイドリストを復元
+    document.getElementById('section-list').classList.remove('panel-hidden');
+  }
   // 選択マーカーを元に戻す
   if (_selectedMarker) {
     const prevId = _selectedMarker._shopId;
@@ -1643,8 +1750,20 @@ const FALLBACK = [
   {id:1,name:"サンプル店舗",pref:"東京都",city:"渋谷区",address:"",lat:35.669,lng:139.709,rating:null,reviews:0,tags:["cafe"],website:"",phone:"",instagram:"",category:"",hours:{},photos:[],payment:[],services:[],status:"active"}
 ];
 
+/* PC：パネル開始位置（ヘッダー＋検索バー高さ）をCSS変数に設定 */
+function _setPanelTop() {
+  if (window.innerWidth <= 640) return;
+  const search = document.querySelector('.search-section');
+  if (!search) return;
+  const top = Math.ceil(search.getBoundingClientRect().bottom);
+  document.documentElement.style.setProperty('--panel-top', top + 'px');
+  if (map) setTimeout(() => map.invalidateSize(), 50);
+}
+window.addEventListener('resize', _setPanelTop);
+
 document.addEventListener('DOMContentLoaded', async () => {
   await init();
+  _setPanelTop(); // 初回セット
   // favorites.htmlからのリンク対応: #shop-123
   const hash = location.hash;
   if (hash && hash.startsWith('#shop-')) {
