@@ -1201,7 +1201,10 @@ function renderCards() {
     grid.appendChild(card);
   });
   const countEl = document.getElementById('count-display');
-  countEl.textContent = myLat ? filteredShops.length+' (徒歩60分圏内)' : filteredShops.length;
+  const nameQ2 = (window._nameFilter || '').toLowerCase();
+  countEl.textContent = nameQ2
+    ? filteredShops.length + (myLat ? ' 件（距離順）' : ' 件')
+    : (myLat ? filteredShops.length+' (徒歩60分圏内)' : filteredShops.length);
   document.getElementById('load-more-btn').style.display = filteredShops.length>displayedCount?'inline-block':'none';
 }
 
@@ -1219,11 +1222,17 @@ function filterShops() {
   updateMarkers(ALL_SHOPS);
   filteredShops = ALL_SHOPS.filter(s => {
     const mS = !style || (style==='cafe'&&(s.tags||[]).includes('cafe')) || (style==='nocafe'&&!(s.tags||[]).includes('cafe'));
-    const mW = !myLat || (s.lat&&s.lng&&distanceMeters(myLat,myLng,s.lat,s.lng)<=WALK_60);
+    // 店名検索中は徒歩圏フィルターを外して全店から検索
+    const mW = nameQ ? true : (!myLat || (s.lat&&s.lng&&distanceMeters(myLat,myLng,s.lat,s.lng)<=WALK_60));
     const mN = !nameQ || (s.name||'').toLowerCase().includes(nameQ);
     return mS && mW && mN;
   });
-  if (myLat) filteredShops.sort((a,b) => distanceMeters(myLat,myLng,a.lat,a.lng)-distanceMeters(myLat,myLng,b.lat,b.lng));
+  // 常に距離順（現在地あり時）
+  if (myLat) filteredShops.sort((a,b) => {
+    const da = (a.lat&&a.lng) ? distanceMeters(myLat,myLng,a.lat,a.lng) : Infinity;
+    const db = (b.lat&&b.lng) ? distanceMeters(myLat,myLng,b.lat,b.lng) : Infinity;
+    return da - db;
+  });
   displayedCount = 50;
   renderCards();
 }
