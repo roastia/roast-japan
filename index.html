@@ -141,23 +141,26 @@ nav a:hover{color:var(--gold);}
 /* SHOP LIST */
 #section-list{padding:0 0 2rem;}
 .shop-grid{max-width:100%;margin:0 1rem;padding:0;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:6px;overflow:hidden;}
-.shop-card{background:var(--bg);border:none;cursor:pointer;transition:background .15s;text-align:left;display:flex;align-items:center;gap:0;border-bottom:1px solid var(--border);position:relative;min-height:48px;-webkit-tap-highlight-color:rgba(140,90,40,.1);border-left:3px solid transparent;}
+.shop-card{background:var(--bg);border:none;cursor:pointer;transition:background .15s;text-align:left;display:flex;flex-direction:column;border-bottom:1px solid var(--border);position:relative;-webkit-tap-highlight-color:rgba(140,90,40,.1);border-left:3px solid transparent;padding:7px 10px 7px 0;}
 .shop-card.mark-fav{border-left-color:#E53935;}
 .shop-card.mark-rev{border-left-color:#FFB300;}
 .shop-card.mark-both{border-left-color:#2E7D32;}
 .shop-card:last-child{border-bottom:none;}
 .shop-card:hover{background:var(--bg2);}
-.col-num{flex:0 0 40px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--text-dim);padding:0 0 0 12px;user-select:none;}
-.col-name{flex:1 1 0;padding:11px 10px 11px 4px;min-width:0;}
-.card-name{font-family:var(--serif);font-size:.95rem;font-weight:600;color:var(--cream);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.card-pref{font-family:var(--mono);font-size:9px;color:var(--text-dim);margin-top:1px;}
-.col-tags{flex:0 0 auto;display:flex;gap:4px;flex-wrap:nowrap;padding:0 8px;align-items:center;}
-.tag{font-family:var(--mono);font-size:8px;letter-spacing:.08em;padding:2px 6px;border-radius:2px;text-transform:uppercase;white-space:nowrap;}
+/* 1行目：番号＋店名 */
+.card-main{display:flex;align-items:flex-start;gap:2px;}
+.col-num{flex:0 0 34px;text-align:center;font-family:var(--mono);font-size:9px;color:var(--text-dim);padding-top:2px;user-select:none;}
+.card-name{flex:1;font-family:var(--serif);font-size:.88rem;font-weight:600;color:var(--cream);line-height:1.35;word-break:break-word;padding-right:6px;}
+/* 2行目：都道府県・タグ・徒歩 */
+.card-sub{display:flex;align-items:center;gap:5px;padding-left:34px;margin-top:3px;flex-wrap:wrap;}
+.card-pref{font-family:var(--mono);font-size:8.5px;color:var(--text-dim);}
+.col-tags{display:flex;gap:3px;flex-wrap:wrap;align-items:center;}
+.tag{font-family:var(--mono);font-size:7.5px;letter-spacing:.06em;padding:1px 5px;border-radius:2px;text-transform:uppercase;white-space:nowrap;}
 .tag-specialty{background:rgba(136,45,23,.10);color:#882D17;border:1px solid rgba(136,45,23,.25);}
 .tag-online{background:rgba(125,74,49,.10);color:#7D4A31;border:1px solid rgba(125,74,49,.25);}
 .tag-scaj{background:rgba(111,78,55,.10);color:#6F4E37;border:1px solid rgba(111,78,55,.25);}
 .tag-cafe{background:rgba(112,66,65,.10);color:#704241;border:1px solid rgba(112,66,65,.25);}
-.col-walk{flex:0 0 90px;text-align:right;font-family:var(--mono);font-size:10px;color:#555;padding:0 14px 0 4px;white-space:nowrap;}
+.col-walk{font-family:var(--mono);font-size:8.5px;color:#666;margin-left:auto;white-space:nowrap;}
 .rev-date{font-size:8px;color:#FFB300;margin-top:2px;}
 .shop-grid-header{display:flex;align-items:center;gap:0;padding:8px 0;border-bottom:1px solid var(--border2);background:var(--bg2);}
 .shop-grid-header .col-num,.shop-grid-header .col-name,.shop-grid-header .col-tags,.shop-grid-header .col-walk{font-family:var(--sans);font-size:9px;letter-spacing:.15em;color:#7D4A31;text-transform:uppercase;font-weight:600;}
@@ -1164,16 +1167,18 @@ function renderCards() {
       focusShopOnMap(shop.id); openModal(shop.id);
     };
     card.innerHTML = `
-      <div class="col-num">${idx+1}</div>
-      <div class="col-name">
+      <div class="card-main">
+        <div class="col-num">${idx+1}</div>
         <div class="card-name">${shop.name}</div>
-        <div class="card-pref">${shop.pref}${shop.city?' · '+shop.city:''}</div>
       </div>
-      <div class="col-tags">${(shop.tags||[]).map(tagLabel).join('')}</div>
-      <div class="col-walk">
-        ${walkMin ? `<div>🚶${walkMin}分</div>` : ''}
-        ${isRev && _mapRevDates[Number(shop.id)] ? `<div class="rev-date">${_fmtDateTime(_mapRevDates[Number(shop.id)])}</div>` : ''}
-        ${_mapVisitCounts[Number(shop.id)] > 0 ? `<div class="rev-date" style="color:#1565C0">📍${_mapVisitCounts[Number(shop.id)]}回</div>` : ''}
+      <div class="card-sub">
+        <div class="card-pref">${shop.pref}${shop.city?' · '+shop.city:''}</div>
+        <div class="col-tags">${(shop.tags||[]).map(tagLabel).join('')}</div>
+        <div class="col-walk">
+          ${walkMin ? `🚶${walkMin}分` : ''}
+          ${isRev && _mapRevDates[Number(shop.id)] ? `<span class="rev-date">${_fmtDateTime(_mapRevDates[Number(shop.id)])}</span>` : ''}
+          ${_mapVisitCounts[Number(shop.id)] > 0 ? `<span class="rev-date" style="color:#1565C0">📍${_mapVisitCounts[Number(shop.id)]}回</span>` : ''}
+        </div>
       </div>`;
     grid.appendChild(card);
   });
