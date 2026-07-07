@@ -68,6 +68,14 @@ nav a:hover{color:var(--gold);}
 .search-box input::placeholder{color:var(--text-dim);}
 .search-box input:focus{border-color:var(--gold-dim);}
 .search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:14px;pointer-events:none;}
+/* 店名検索 */
+.name-search{display:flex;align-items:center;position:relative;flex:1;min-width:140px;}
+.name-search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:13px;pointer-events:none;}
+.name-input{width:100%;background:var(--bg);border:1.5px solid var(--border2);color:var(--text);font-family:var(--serif);font-size:13px;padding:7px 28px 7px 30px;border-radius:6px;outline:none;transition:border-color .2s;}
+.name-input::placeholder{color:var(--text-dim);}
+.name-input:focus{border-color:var(--gold-dim);}
+.name-clear{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:14px;padding:0;display:none;line-height:1;}
+.name-clear.visible{display:block;}
 .filter-select{background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:11px;padding:9px 28px 9px 12px;border-radius:4px;outline:none;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238a7045'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center;}
 .result-count{font-family:var(--mono);font-size:11px;color:var(--text-dim);white-space:nowrap;}
 .result-count strong{color:var(--gold);}
@@ -298,11 +306,14 @@ footer a:hover{color:var(--gold);}
   .addr-search { grid-column:2; grid-row:1; min-width:0; }
   .addr-input  { font-size:12px; padding:7px 8px; flex:1; min-width:0; }
   .btn-addr    { font-size:10px; padding:7px 8px; white-space:nowrap; flex-shrink:0; }
-  /* 2行目：座席フィルター（全幅） */
-  .cafe-radio  { grid-column:1 / -1; grid-row:2; gap:10px; }
+  /* 2行目：店名検索（全幅） */
+  .name-search { grid-column:1 / -1; grid-row:2; }
+  .name-input  { font-size:12px; padding:6px 26px 6px 28px; }
+  /* 3行目：座席フィルター（全幅） */
+  .cafe-radio  { grid-column:1 / -1; grid-row:3; gap:10px; }
   .radio-label { font-size:10px; }
-  /* 3行目：件数（全幅） */
-  .result-count    { grid-column:1 / -1; grid-row:3; font-size:9px; }
+  /* 4行目：件数（全幅） */
+  .result-count    { grid-column:1 / -1; grid-row:4; font-size:9px; }
   .location-status { display:none; }
   #map { height: 320px; min-height: 320px; }
   .shop-grid { margin: 0 .5rem; }
@@ -473,6 +484,13 @@ footer a:hover{color:var(--gold);}
       <div class="addr-search">
         <input class="addr-input" id="addr-input" type="text" placeholder="住所・駅名で検索… 例: 渋谷駅" onkeydown="if(event.key==='Enter')geocodeAddress()">
         <button class="btn-addr" onclick="geocodeAddress()">この場所から探す</button>
+      </div>
+      <div class="name-search">
+        <span class="name-search-icon">🔍</span>
+        <input class="name-input" id="name-input" type="text" placeholder="店名で絞り込み…"
+          oninput="setNameFilter(this.value)"
+          onkeydown="if(event.key==='Escape'){setNameFilter('');this.value='';}">
+        <button class="name-clear" id="name-clear" onclick="setNameFilter('');document.getElementById('name-input').value=''">✕</button>
       </div>
       <div class="cafe-radio">
         <label class="radio-label"><input type="radio" name="cafe" value="" checked onchange="setCafeFilter('')"> すべて</label>
@@ -1187,14 +1205,23 @@ function renderCards() {
   document.getElementById('load-more-btn').style.display = filteredShops.length>displayedCount?'inline-block':'none';
 }
 
+function setNameFilter(val) {
+  window._nameFilter = val.trim();
+  const clearBtn = document.getElementById('name-clear');
+  if (clearBtn) clearBtn.classList.toggle('visible', !!window._nameFilter);
+  filterShops();
+}
+
 function filterShops() {
   const style = window._cafeFilter || '';
+  const nameQ = (window._nameFilter || '').toLowerCase();
   const WALK_60 = walkToMeters(60);
   updateMarkers(ALL_SHOPS);
   filteredShops = ALL_SHOPS.filter(s => {
     const mS = !style || (style==='cafe'&&(s.tags||[]).includes('cafe')) || (style==='nocafe'&&!(s.tags||[]).includes('cafe'));
     const mW = !myLat || (s.lat&&s.lng&&distanceMeters(myLat,myLng,s.lat,s.lng)<=WALK_60);
-    return mS && mW;
+    const mN = !nameQ || (s.name||'').toLowerCase().includes(nameQ);
+    return mS && mW && mN;
   });
   if (myLat) filteredShops.sort((a,b) => distanceMeters(myLat,myLng,a.lat,a.lng)-distanceMeters(myLat,myLng,b.lat,b.lng));
   displayedCount = 50;
