@@ -315,11 +315,9 @@ footer a:hover{color:var(--gold);}
   /* 4行目：件数（全幅） */
   .result-count    { grid-column:1 / -1; grid-row:4; font-size:9px; }
   .location-status { display:none; }
-  .map-list-wrap {
-    flex-direction: column; /* マップ上・リスト下（column-reverseを上書き） */
-    position: relative;
-    z-index: 0; /* ヘッダー(z-index:100)より下に収める */
-  }
+  header { z-index: 9000; }          /* section-listより確実に上 */
+  .search-section { z-index: 8999; }
+  .map-list-wrap { flex-direction: column; } /* マップ上・リスト下 */
   #map { height: 320px; min-height: 320px; }
   .shop-grid { margin: 0 .5rem; }
   .col-num { flex: 0 0 28px; font-size: 9px; padding-left: 4px; }
