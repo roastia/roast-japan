@@ -997,16 +997,9 @@ async function saveEmail() {
     // 再認証
     const cred = firebase.auth.EmailAuthProvider.credential(u.email, password);
     await u.reauthenticateWithCredential(cred);
-    // 新しいアドレスに確認メールを送信（クリック後に変更が完了する）
-    const actionCodeSettings = {
-      url: 'https://roastia.github.io/roast-japan/favorites.html',
-      handleCodeInApp: false
-    };
-    await u.verifyBeforeUpdateEmail(newEmail, actionCodeSettings);
-    // 確認メール送信完了の表示
-    const row = document.getElementById('profile-email-row');
-    if (row) row.innerHTML = `
-      <span class="profile-email" style="color:var(--gold);">✉ ${escHtml(newEmail)} に確認メールを送信しました。届かない場合は迷惑メールフォルダも確認してください。リンクをクリックすると変更が完了します。</span>`;
+    // メールアドレスを直接更新（メール列挙保護OFF済みの前提）
+    await u.updateEmail(newEmail);
+    cancelEditEmail(newEmail);
   } catch(e) {
     const msg = {
       'auth/invalid-email': '無効なメールアドレスです',
