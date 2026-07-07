@@ -1419,8 +1419,8 @@ function closeModal(e) {
     _refreshMarkerIcon(prevId);
   }
   _currentModalShopId = null;
-  // 詳細パネルが閉じた後、ルート表示中なら可視エリアに合わせて再フィット
-  if (window.innerWidth > 640) setTimeout(_refitRoute, 320);
+  // モーダルを閉じたらルートも消去
+  if (routeControl) { map.removeControl(routeControl); routeControl = null; _lastRouteBounds = null; }
 }
 
 document.addEventListener('keydown', e => {
@@ -1439,7 +1439,7 @@ document.addEventListener('keydown', e => {
       _refreshMarkerIcon(_selectedMarker._shopId);
       _selectedMarker = null;
     }
-    if (typeof routingControl !== 'undefined' && routingControl) { map.removeControl(routingControl); routingControl = null; }
+    if (routeControl) { map.removeControl(routeControl); routeControl = null; _lastRouteBounds = null; }
   }
 });
 
