@@ -52,10 +52,16 @@ nav a:hover{color:var(--gold);}
 .profile-name{font-family:var(--serif);font-size:1.2rem;color:var(--cream);}
 .profile-email{font-family:var(--mono);font-size:11px;color:var(--text-dim);}
 .profile-name-row{display:flex;align-items:center;gap:8px;}
+.profile-email-row{display:flex;align-items:center;gap:6px;margin-top:2px;}
 .btn-edit-name{background:none;border:none;color:var(--text-dim);font-size:13px;cursor:pointer;padding:2px 4px;border-radius:3px;transition:color .15s;}
 .btn-edit-name:hover{color:var(--cream);}
 .name-input{font-family:var(--serif);font-size:1.2rem;color:var(--cream);background:var(--bg2);border:1px solid var(--border2);border-radius:4px;padding:2px 8px;outline:none;width:160px;}
+.email-input{font-family:var(--mono);font-size:11px;color:var(--text);background:var(--bg2);border:1px solid var(--border2);border-radius:4px;padding:3px 8px;outline:none;width:200px;}
+.email-input:focus{border-color:var(--gold-dim);}
+.pw-input{font-family:var(--mono);font-size:11px;color:var(--text);background:var(--bg2);border:1px solid var(--border2);border-radius:4px;padding:3px 8px;outline:none;width:140px;}
+.pw-input:focus{border-color:var(--gold-dim);}
 .btn-save-name{background:#6F4E37;color:#fff;border:none;font-family:var(--sans);font-size:10px;font-weight:600;padding:4px 10px;border-radius:3px;cursor:pointer;}
+.email-edit-error{font-family:var(--mono);font-size:10px;color:#c06040;margin-top:3px;}
 
 /* タブ */
 .tabs{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:1.8rem;}
@@ -329,7 +335,10 @@ async function renderMyPage(user, content) {
             <span id="profile-name-display" class="profile-name">${escHtml(name)}</span>
             <button class="btn-edit-name" onclick="startEditName()" title="名前を変更">✏️</button>
           </div>
-          <div class="profile-email">${escHtml(user.email)}</div>
+          <div class="profile-email-row" id="profile-email-row">
+            <span id="profile-email-display" class="profile-email">${escHtml(user.email)}</span>
+            <button class="btn-edit-name" onclick="startEditEmail()" title="メールアドレスを変更">✏️</button>
+          </div>
         </div>
         <button class="btn-share-url" onclick="toggleShareDropdown(event,'${escHtml(shareUrl)}')" title="シェア">🔗 URLをシェア
           <div class="share-dropdown" id="share-dropdown">
@@ -928,6 +937,54 @@ async function saveDisplayName() {
     cancelEditName(newName);
   } catch(e) {
     alert('名前の変更に失敗しました: ' + (e.message || e));
+  }
+}
+
+function startEditEmail() {
+  const row = document.getElementById('profile-email-row');
+  const current = document.getElementById('profile-email-display').textContent;
+  row.innerHTML = `
+    <div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+        <input id="email-new-input" class="email-input" type="email" value="${escHtml(current)}" placeholder="新しいメールアドレス">
+        <input id="email-pw-input" class="pw-input" type="password" placeholder="現在のパスワード">
+        <button class="btn-save-name" onclick="saveEmail()">変更</button>
+        <button class="btn-edit-name" onclick="cancelEditEmail('${escHtml(current)}')">✕</button>
+      </div>
+      <div class="email-edit-error" id="email-edit-error"></div>
+    </div>`;
+  document.getElementById('email-new-input').focus();
+}
+
+function cancelEditEmail(email) {
+  document.getElementById('profile-email-row').innerHTML = `
+    <span id="profile-email-display" class="profile-email">${escHtml(email)}</span>
+    <button class="btn-edit-name" onclick="startEditEmail()" title="メールアドレスを変更">✏️</button>`;
+}
+
+async function saveEmail() {
+  const newEmail = (document.getElementById('email-new-input')?.value || '').trim();
+  const password = document.getElementById('email-pw-input')?.value || '';
+  const errEl = document.getElementById('email-edit-error');
+  if (!newEmail) { if(errEl) errEl.textContent = 'メールアドレスを入力してください'; return; }
+  if (!password) { if(errEl) errEl.textContent = 'パスワードを入力してください（再認証が必要です）'; return; }
+  try {
+    const u = auth.currentUser;
+    // 再認証
+    const cred = firebase.auth.EmailAuthProvider.credential(u.email, password);
+    await u.reauthenticateWithCredential(cred);
+    // メールアドレス更新
+    await u.updateEmail(newEmail);
+    cancelEditEmail(newEmail);
+  } catch(e) {
+    const msg = {
+      'auth/invalid-email': '無効なメールアドレスです',
+      'auth/email-already-in-use': 'このメールアドレスは既に使用されています',
+      'auth/wrong-password': 'パスワードが正しくありません',
+      'auth/requires-recent-login': 'パスワードを入力して再認証してください',
+      'auth/too-many-requests': 'しばらく待ってから再試行してください',
+    }[e.code] || (e.message || '変更に失敗しました');
+    if(errEl) errEl.textContent = msg;
   }
 }
 
