@@ -472,8 +472,7 @@ footer a:hover{color:var(--gold);}
     <div class="header-count"><span id="stat-total">—</span>店舗掲載中</div>
   </div>
   <nav>
-    <a href="favorites.html" id="nav-fav" style="display:none">マイページ</a>
-    <button class="btn-login" id="btn-login" onclick="openAuthModal()">ログイン</button>
+    <button class="btn-login" id="btn-login" onclick="currentUser ? location.href='favorites.html' : openAuthModal()">ログイン</button>
   </nav>
 </header>
 <div class="header-mobile-bar">
@@ -567,7 +566,7 @@ footer a:hover{color:var(--gold);}
           <div class="auth-user-email" id="auth-email-display"></div>
         </div>
       </div>
-      <button class="btn-logout" onclick="doLogout()">ログアウト</button>
+      <button class="btn-logout" onclick="location.href='favorites.html'">マイページへ →</button>
     </div>
 
     <!-- ログイン・新規登録フォーム -->
@@ -635,17 +634,16 @@ auth.onAuthStateChanged(user => {
 
 function _updateLoginBtn() {
   const btn = document.getElementById('btn-login');
-  const favLink = document.getElementById('nav-fav');
   if (!btn) return;
   if (currentUser) {
     const name = currentUser.displayName || currentUser.email.split('@')[0];
-    btn.textContent = name.length > 10 ? name.slice(0,10)+'…' : name;
+    btn.textContent = (name.length > 10 ? name.slice(0,10)+'…' : name) + ' ▸';
     btn.classList.add('logged-in');
-    if (favLink) favLink.style.display = 'inline';
+    btn.title = 'マイページへ';
   } else {
     btn.textContent = 'ログイン';
     btn.classList.remove('logged-in');
-    if (favLink) favLink.style.display = 'none';
+    btn.title = '';
   }
 }
 
