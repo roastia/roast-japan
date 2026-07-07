@@ -1213,6 +1213,9 @@ function showRoute(shopLat, shopLng) {
   if (routeControl) { map.removeControl(routeControl); routeControl=null; }
   _lastRouteBounds = null;
   if (!myLat || !myLng) return;
+  // ルート計算前に現在地＋店舗の両地点を即時フィット
+  const initBounds = L.latLngBounds([[myLat, myLng], [shopLat, shopLng]]);
+  map.fitBounds(initBounds, { paddingTopLeft:[_routeLeftPad(), 20], paddingBottomRight:[20, 60] });
   routeControl = L.Routing.control({
     waypoints:[L.latLng(myLat,myLng),L.latLng(shopLat,shopLng)],
     router: L.Routing.osrmv1({ serviceUrl:'https://router.project-osrm.org/route/v1', profile:'foot' }),
@@ -1220,6 +1223,7 @@ function showRoute(shopLat, shopLng) {
     show:false, addWaypoints:false, routeWhileDragging:false, fitSelectedRoutes:false, showAlternatives:false,
     createMarker:()=>null
   }).addTo(map);
+  // ルート計算完了後、経路全体に再フィット
   routeControl.on('routesfound', function(e) {
     _lastRouteBounds = e.routes[0].bounds;
     _refitRoute();
@@ -1229,11 +1233,21 @@ function showRoute(shopLat, shopLng) {
 function focusShopOnMap(shopId) {
   const shop = ALL_SHOPS.find(s=>s.id===shopId);
   if (!shop||!shop.lat||!shop.lng) return;
-  if (myLat && myLng) showRoute(shop.lat, shop.lng);
-  else map.setView([shop.lat,shop.lng],16);
-  markerGroup.eachLayer(marker => {
-    if (marker._shopId===shopId) markerGroup.zoomToShowLayer(marker, ()=>marker.openPopup());
-  });
+  if (myLat && myLng) {
+    // 現在地あり：showRoute内で両地点を即時フィット＋ルート計算後に再フィット
+    showRoute(shop.lat, shop.lng);
+  } else {
+    // 現在地なし：ショップへ即時移動（PCは左パネルオフセットで可視エリア中央に）
+    const zoom = 16;
+    if (window.innerWidth > 640) {
+      const pad = _routeLeftPad();
+      const pt = map.project(L.latLng(shop.lat, shop.lng), zoom);
+      const adjusted = map.unproject(pt.subtract([pad / 2, 0]), zoom);
+      map.setView(adjusted, zoom);
+    } else {
+      map.setView([shop.lat, shop.lng], zoom);
+    }
+  }
 }
 
 function setCafeFilter(val) { window._cafeFilter=val; displayedCount=50; filterShops(); }
