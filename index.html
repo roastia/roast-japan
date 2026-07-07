@@ -317,7 +317,7 @@ footer a:hover{color:var(--gold);}
   .location-status { display:none; }
   header { z-index: 9000; }          /* section-listより確実に上 */
   .search-section { z-index: 8999; }
-  .map-list-wrap { flex-direction: column; } /* マップ上・リスト下 */
+  /* flex-direction は 900px ルールの column-reverse を維持（map上・list下） */
   #map { height: 320px; min-height: 320px; }
   .shop-grid { margin: 0 .5rem; }
   .col-num { flex: 0 0 28px; font-size: 9px; padding-left: 4px; }
