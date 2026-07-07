@@ -1152,7 +1152,12 @@ function renderCards() {
     const markCls = (isFav && isRev) ? ' mark-both' : isFav ? ' mark-fav' : isRev ? ' mark-rev' : '';
     card.className = 'shop-card' + markCls;
     card.dataset.shopId = shop.id;
-    card.onclick = () => { focusShopOnMap(shop.id); openModal(shop.id); };
+    card.onclick = () => {
+      if (_currentModalShopId === shop.id && document.getElementById('modal-overlay').classList.contains('open')) {
+        closeModal(); return;
+      }
+      focusShopOnMap(shop.id); openModal(shop.id);
+    };
     card.innerHTML = `
       <div class="col-num">${idx+1}</div>
       <div class="col-name">
@@ -1188,16 +1193,37 @@ function filterShops() {
 
 function loadMore() { displayedCount += 50; renderCards(); }
 
+let _lastRouteBounds = null;
+
+// PCの左パネル幅を考慮したpadding計算
+// 一覧のみ:380px、詳細も開いている場合:380+360=740px
+function _routeLeftPad() {
+  if (window.innerWidth <= 640) return 20;
+  const detailOpen = document.getElementById('modal-overlay').classList.contains('open');
+  return detailOpen ? 760 : 400;
+}
+
+function _refitRoute() {
+  if (_lastRouteBounds && map) {
+    map.fitBounds(_lastRouteBounds, { paddingTopLeft:[_routeLeftPad(), 20], paddingBottomRight:[20, 20] });
+  }
+}
+
 function showRoute(shopLat, shopLng) {
   if (routeControl) { map.removeControl(routeControl); routeControl=null; }
+  _lastRouteBounds = null;
   if (!myLat || !myLng) return;
   routeControl = L.Routing.control({
     waypoints:[L.latLng(myLat,myLng),L.latLng(shopLat,shopLng)],
     router: L.Routing.osrmv1({ serviceUrl:'https://router.project-osrm.org/route/v1', profile:'foot' }),
     lineOptions:{ styles:[{color:'#882D17',weight:4,opacity:.8}] },
-    show:false, addWaypoints:false, routeWhileDragging:false, fitSelectedRoutes:true, showAlternatives:false,
+    show:false, addWaypoints:false, routeWhileDragging:false, fitSelectedRoutes:false, showAlternatives:false,
     createMarker:()=>null
   }).addTo(map);
+  routeControl.on('routesfound', function(e) {
+    _lastRouteBounds = e.routes[0].bounds;
+    _refitRoute();
+  });
 }
 
 function focusShopOnMap(shopId) {
@@ -1306,6 +1332,8 @@ function _openModalWith(shop) {
   document.getElementById('modal-overlay').classList.add('open');
   if (window.innerWidth <= 640) document.body.style.overflow = 'hidden';
   loadModalUserData(id);
+  // 詳細パネルが開いた後、ルート表示中なら可視エリアに合わせて再フィット
+  if (window.innerWidth > 640) setTimeout(_refitRoute, 320); // スライドアニメ完了後
 }
 
 function closeModal(e) {
@@ -1327,6 +1355,8 @@ function closeModal(e) {
     _refreshMarkerIcon(prevId);
   }
   _currentModalShopId = null;
+  // 詳細パネルが閉じた後、ルート表示中なら可視エリアに合わせて再フィット
+  if (window.innerWidth > 640) setTimeout(_refitRoute, 320);
 }
 
 document.addEventListener('keydown', e => {
