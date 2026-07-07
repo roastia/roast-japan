@@ -7,6 +7,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Josefin+Sans:wght@300;400;600&family=DM+Mono:wght@300;400&display=swap');
 :root {
@@ -222,6 +223,12 @@ footer a:hover{color:var(--gold);}
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('/roast-japan/sw.js').catch(()=>{}));
 }
+// EmailJS設定
+const EMAILJS_PUBLIC_KEY  = 'vUrYA8HIub6UqCUZX';
+const EMAILJS_SERVICE_ID  = 'service_mw3khkd';
+const EMAILJS_TEMPLATE_ID = 'template_9uh78qk';
+emailjs.init(EMAILJS_PUBLIC_KEY);
+
 const firebaseConfig = {
   apiKey: "AIzaSyDsyPuwfAxBsqXO0iVXcM6NoOiXVLcFb7Q",
   authDomain: "roastia-f9907.firebaseapp.com",
@@ -986,30 +993,135 @@ function cancelEditEmail(email) {
     <button class="btn-edit-name" onclick="startEditEmail()" title="メールアドレスを変更">✏️</button>`;
 }
 
+// OTP生成
+function _genOTP() { return Math.floor(100000 + Math.random() * 900000).toString(); }
+
+// ステップ1：再認証 → OTP送信
 async function saveEmail() {
   const newEmail = (document.getElementById('email-new-input')?.value || '').trim();
   const password = document.getElementById('email-pw-input')?.value || '';
   const errEl = document.getElementById('email-edit-error');
   if (!newEmail) { if(errEl) errEl.textContent = 'メールアドレスを入力してください'; return; }
-  if (!password) { if(errEl) errEl.textContent = 'パスワードを入力してください（再認証が必要です）'; return; }
+  if (!password) { if(errEl) errEl.textContent = 'パスワードを入力してください'; return; }
+  const btn = document.querySelector('#profile-email-row .btn-save-name');
+  if (btn) { btn.disabled = true; btn.textContent = '送信中…'; }
   try {
     const u = auth.currentUser;
     // 再認証
     const cred = firebase.auth.EmailAuthProvider.credential(u.email, password);
     await u.reauthenticateWithCredential(cred);
-    // メールアドレスを直接更新（メール列挙保護OFF済みの前提）
-    await u.updateEmail(newEmail);
-    cancelEditEmail(newEmail);
+    // OTP生成・Firestoreに保存（5分有効）
+    const otp = _genOTP();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    await db.collection('users').doc(u.uid).collection('emailChange').doc('pending').set({
+      newEmail, otp, expiresAt, attempts: 0
+    });
+    // EmailJSで送信
+    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      to_email: newEmail,
+      otp_code: otp,
+    });
+    // OTP入力UIを表示
+    _showOTPInput(u.email, newEmail);
   } catch(e) {
+    if (btn) { btn.disabled = false; btn.textContent = '変更'; }
     const msg = {
+      'auth/wrong-password': 'パスワードが正しくありません',
       'auth/invalid-email': '無効なメールアドレスです',
       'auth/email-already-in-use': 'このメールアドレスは既に使用されています',
-      'auth/wrong-password': 'パスワードが正しくありません',
-      'auth/requires-recent-login': 'セッションが切れました。一度ログアウトして再ログインしてください',
       'auth/too-many-requests': 'しばらく待ってから再試行してください',
-      'auth/operation-not-allowed': 'このメールアドレスへの変更は許可されていません',
+      'auth/requires-recent-login': 'セッションが切れました。再ログインしてください',
+    }[e.code] || 'メール送信に失敗しました。しばらくしてから再試行してください。';
+    if(errEl) errEl.textContent = msg;
+  }
+}
+
+// OTP入力UI表示
+function _showOTPInput(oldEmail, newEmail) {
+  const row = document.getElementById('profile-email-row');
+  if (!row) return;
+  row.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:10px 12px;font-family:var(--mono);font-size:11px;line-height:1.8;">
+      <div style="color:var(--gold);margin-bottom:6px;">✉ <strong>${escHtml(newEmail)}</strong> に確認コードを送信しました</div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+        <input id="otp-input" class="email-input" type="text" inputmode="numeric" maxlength="6" placeholder="6桁のコード" style="width:120px;letter-spacing:4px;font-size:14px;">
+        <button class="btn-save-name" onclick="verifyEmailOTP('${escHtml(oldEmail)}','${escHtml(newEmail)}')">確認</button>
+        <button class="btn-edit-name" onclick="cancelEditEmail('${escHtml(oldEmail)}')">キャンセル</button>
+      </div>
+      <div style="margin-top:6px;color:var(--text-dim);font-size:10px;">コードが届かない場合 → <span style="cursor:pointer;text-decoration:underline;color:var(--gold-dim)" onclick="resendEmailOTP('${escHtml(oldEmail)}','${escHtml(newEmail)}')">再送信</span></div>
+      <div class="email-edit-error" id="email-edit-error"></div>
+    </div>`;
+  document.getElementById('otp-input').focus();
+}
+
+// ステップ2：OTP照合 → メールアドレス更新
+async function verifyEmailOTP(oldEmail, newEmail) {
+  const otp = (document.getElementById('otp-input')?.value || '').trim();
+  const errEl = document.getElementById('email-edit-error');
+  if (!otp || otp.length !== 6) { if(errEl) errEl.textContent = '6桁のコードを入力してください'; return; }
+  const btn = document.querySelector('#profile-email-row .btn-save-name');
+  if (btn) { btn.disabled = true; btn.textContent = '確認中…'; }
+  try {
+    const u = auth.currentUser;
+    const ref = db.collection('users').doc(u.uid).collection('emailChange').doc('pending');
+    const snap = await ref.get();
+    if (!snap.exists) { if(errEl) errEl.textContent = 'コードが無効です。最初からやり直してください'; if(btn){btn.disabled=false;btn.textContent='確認';} return; }
+    const data = snap.data();
+    // 期限チェック
+    if (data.expiresAt.toDate() < new Date()) {
+      await ref.delete();
+      if(errEl) errEl.textContent = 'コードの有効期限が切れました。再度「変更」から始めてください';
+      if(btn){btn.disabled=false;btn.textContent='確認';}
+      return;
+    }
+    // 試行回数チェック（5回まで）
+    if ((data.attempts || 0) >= 5) {
+      await ref.delete();
+      if(errEl) errEl.textContent = '試行回数超過です。再度「変更」から始めてください';
+      if(btn){btn.disabled=false;btn.textContent='確認';}
+      return;
+    }
+    // OTP照合
+    if (data.otp !== otp) {
+      await ref.update({ attempts: (data.attempts || 0) + 1 });
+      if(errEl) errEl.textContent = `コードが正しくありません（残り${4 - (data.attempts||0)}回）`;
+      if(btn){btn.disabled=false;btn.textContent='確認';}
+      return;
+    }
+    // 照合OK → メールアドレス更新
+    await u.updateEmail(newEmail);
+    await ref.delete();
+    cancelEditEmail(newEmail);
+  } catch(e) {
+    if(btn){btn.disabled=false;btn.textContent='確認';}
+    const msg = {
+      'auth/email-already-in-use': 'このメールアドレスは既に使用されています',
+      'auth/invalid-email': '無効なメールアドレスです',
+      'auth/requires-recent-login': 'セッションが切れました。再ログインしてください',
+      'auth/operation-not-allowed': 'この操作は許可されていません',
     }[e.code] || '変更に失敗しました。しばらくしてから再試行してください。';
     if(errEl) errEl.textContent = msg;
+  }
+}
+
+// OTP再送信
+async function resendEmailOTP(oldEmail, newEmail) {
+  try {
+    const u = auth.currentUser;
+    const otp = _genOTP();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    await db.collection('users').doc(u.uid).collection('emailChange').doc('pending').set({
+      newEmail, otp, expiresAt, attempts: 0
+    });
+    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      to_email: newEmail,
+      otp_code: otp,
+    });
+    const errEl = document.getElementById('email-edit-error');
+    if(errEl){ errEl.style.color='var(--gold)'; errEl.textContent='コードを再送信しました'; setTimeout(()=>{ if(errEl){errEl.style.color='';errEl.textContent='';} },3000); }
+  } catch(e) {
+    const errEl = document.getElementById('email-edit-error');
+    if(errEl) errEl.textContent = '再送信に失敗しました';
   }
 }
 
