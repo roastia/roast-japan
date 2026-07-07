@@ -84,7 +84,7 @@ roastia/
 
 ```javascript
 const firebaseConfig = {
-  apiKey: "AIzaSyDsyPuwfAxBsqXO0iVXcM6NoOiXVLcFb7Q",
+  apiKey: "※Firebase Consoleで確認",
   authDomain: "roastia-f9907.firebaseapp.com",
   projectId: "roastia-f9907",
   storageBucket: "roastia-f9907.firebasestorage.app",
