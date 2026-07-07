@@ -1022,9 +1022,14 @@ function _createMarker(shop) {
       ${tagBadges || walkBadge ? `<div class="popup-meta">${tagBadges}${walkBadge}</div>` : ''}
     </div>
   `, { maxWidth: 220, autoPan: false });
-  // クリックでデフォルトのポップアップ開閉を無効化し、モーダルを直接開く
+  // カードと同じ挙動：トグル＋マップフォーカス
   marker.off('click');
-  marker.on('click', () => openModal(shop.id));
+  marker.on('click', () => {
+    if (_currentModalShopId === shop.id && document.getElementById('modal-overlay').classList.contains('open')) {
+      closeModal(); return;
+    }
+    focusShopOnMap(shop.id); openModal(shop.id);
+  });
   // マウスオーバー時のみポップアップを表示
   marker.on('mouseover', function() { this.openPopup(); });
   marker.on('mouseout', function() { this.closePopup(); });
