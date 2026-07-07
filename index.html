@@ -764,14 +764,16 @@ let walkMinutes = 0;
 let locMode = null;
 let gpsLat = null, gpsLng = null;
 
-const WALK_SPEED = 80;
-function walkToMeters(min) { return min * WALK_SPEED; }
+const WALK_SPEED = 80;    // 道路距離 80m/分（不動産標準）
+const DETOUR = 1.25;      // 直線→道路距離の補正係数（迂回率）
+// 直線距離をDETOURで補正して徒歩分数を計算（端数切り上げ＝不動産標準）
+function walkToMeters(min) { return min * WALK_SPEED / DETOUR; } // 60分→3840m直線
 function distanceMeters(lat1,lng1,lat2,lng2) {
   const R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLng=(lng2-lng1)*Math.PI/180;
   const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
   return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
-function walkMinutesFromDist(m) { return Math.round(m/WALK_SPEED); }
+function walkMinutesFromDist(m) { return Math.ceil(m * DETOUR / WALK_SPEED); }
 function _fmtPhone(p) {
   return p ? p.replace(/^\+81[-\s]?/, '0') : p;
 }
