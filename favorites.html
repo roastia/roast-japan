@@ -86,25 +86,32 @@ nav a:hover{color:var(--gold);}
 .btn-go-map:hover{opacity:.85;}
 
 /* 店舗グリッド共通 */
-.shops-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;}
-.shop-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;overflow:hidden;cursor:pointer;transition:all .2s;position:relative;}
-.shop-card:hover{border-color:var(--border2);box-shadow:0 4px 16px rgba(111,78,55,.1);transform:translateY(-2px);}
-.card-photo{width:100%;height:120px;object-fit:cover;display:block;background:var(--bg3);}
-.card-photo-placeholder{width:100%;height:120px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:28px;opacity:.3;}
-.card-body{padding:.9rem;}
-.card-pref{font-family:var(--mono);font-size:9px;letter-spacing:.2em;color:var(--gold-dim);text-transform:uppercase;margin-bottom:.25rem;}
-.card-name{font-family:var(--serif);font-size:1rem;font-weight:600;color:var(--cream);line-height:1.3;margin-bottom:.5rem;}
-.card-tags{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:.5rem;}
+.shops-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;}
+/* コンパクト画像オーバーレイカード */
+.shop-card{background:var(--bg3);border:1px solid var(--border);border-radius:8px;overflow:hidden;cursor:pointer;transition:all .2s;position:relative;height:88px;}
+.shop-card:hover{border-color:var(--gold);box-shadow:0 4px 16px rgba(111,78,55,.18);transform:translateY(-2px);}
+/* 画像: カード全体を覆う */
+.card-photo{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block;}
+/* プレースホルダー: カード全体を覆う */
+.card-photo-placeholder{position:absolute;top:0;left:0;width:100%;height:100%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:32px;opacity:.2;}
+/* グラデーションオーバーレイ */
+.shop-card::after{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,transparent 5%,rgba(25,12,4,.42) 48%,rgba(25,12,4,.84) 100%);pointer-events:none;z-index:1;}
+/* テキストエリア: カード下部 */
+.card-body{position:absolute;bottom:0;left:0;right:0;padding:.35rem .55rem;z-index:2;}
+.card-pref{font-family:var(--mono);font-size:8px;letter-spacing:.12em;color:rgba(255,255,255,.6);text-transform:uppercase;margin-bottom:1px;}
+.card-name{font-family:var(--serif);font-size:.88rem;font-weight:600;color:#fff;line-height:1.25;margin-bottom:0;text-shadow:0 1px 4px rgba(0,0,0,.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+/* グリッドビューでは詳細非表示 */
+.card-tags{display:none;gap:4px;flex-wrap:wrap;margin-bottom:.5rem;}
 .tag{font-family:var(--mono);font-size:8px;letter-spacing:.08em;padding:2px 6px;border-radius:2px;text-transform:uppercase;}
 .tag-specialty{background:rgba(136,45,23,.10);color:#882D17;border:1px solid rgba(136,45,23,.25);}
 .tag-online{background:rgba(125,74,49,.10);color:#7D4A31;border:1px solid rgba(125,74,49,.25);}
 .tag-scaj{background:rgba(111,78,55,.10);color:#6F4E37;border:1px solid rgba(111,78,55,.25);}
 .tag-cafe{background:rgba(112,66,65,.10);color:#704241;border:1px solid rgba(112,66,65,.25);}
-.card-google-rating{font-family:var(--mono);font-size:10px;color:var(--text-dim);}
+.card-google-rating{display:none;font-family:var(--mono);font-size:10px;color:var(--text-dim);}
 .card-google-rating .stars{color:#6F4E37;}
 
 /* お気に入りタブ固有 */
-.btn-unfav{position:absolute;top:8px;right:8px;background:rgba(255,255,255,.9);border:1px solid rgba(192,64,96,.3);color:#c04060;font-size:13px;width:28px;height:28px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;backdrop-filter:blur(4px);}
+.btn-unfav{position:absolute;top:8px;right:8px;background:rgba(255,255,255,.9);border:1px solid rgba(192,64,96,.3);color:#c04060;font-size:13px;width:28px;height:28px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;backdrop-filter:blur(4px);z-index:3;}
 .btn-unfav:hover{background:#c04060;color:#fff;border-color:#c04060;}
 
 /* 表示切り替えバー */
@@ -115,17 +122,18 @@ nav a:hover{color:var(--gold);}
 
 /* リスト表示モード */
 .shops-grid.list-view{grid-template-columns:1fr;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
-.shops-grid.list-view .shop-card{border-radius:0;border:none;border-bottom:1px solid var(--border);display:flex;flex-direction:row;align-items:center;transform:none !important;box-shadow:none !important;}
+.shops-grid.list-view .shop-card{height:auto;background:var(--bg);border-radius:0;border:none;border-bottom:1px solid var(--border);display:flex;flex-direction:row;align-items:center;transform:none !important;box-shadow:none !important;}
 .shops-grid.list-view .shop-card:last-child{border-bottom:none;}
+.shops-grid.list-view .shop-card::after{display:none;}
 .shops-grid.list-view .card-photo,.shops-grid.list-view .card-photo-placeholder{display:none;}
-.shops-grid.list-view .card-body{padding:.55rem 1rem;flex:1;min-width:0;display:flex;align-items:center;gap:10px;flex-wrap:nowrap;}
-.shops-grid.list-view .card-name{font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:0;flex:1;min-width:0;}
-.shops-grid.list-view .card-pref{white-space:nowrap;margin-bottom:0;flex-shrink:0;}
-.shops-grid.list-view .card-tags{margin-bottom:0;flex-wrap:nowrap;flex-shrink:0;}
-.shops-grid.list-view .card-google-rating{flex-shrink:0;white-space:nowrap;}
-.shops-grid.list-view .my-rating-row{margin-bottom:0;flex-shrink:0;}
+.shops-grid.list-view .card-body{position:static;padding:.55rem 1rem;flex:1;min-width:0;display:flex;align-items:center;gap:10px;flex-wrap:nowrap;}
+.shops-grid.list-view .card-name{font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:0;flex:1;min-width:0;color:var(--cream);text-shadow:none;}
+.shops-grid.list-view .card-pref{color:var(--gold-dim);white-space:nowrap;margin-bottom:0;flex-shrink:0;}
+.shops-grid.list-view .card-tags{display:flex;margin-bottom:0;flex-wrap:nowrap;flex-shrink:0;}
+.shops-grid.list-view .card-google-rating{display:block;flex-shrink:0;white-space:nowrap;}
+.shops-grid.list-view .my-rating-row{display:flex;margin-bottom:0;flex-shrink:0;}
 .shops-grid.list-view .card-memo{display:none;}
-.shops-grid.list-view .card-date{margin-top:0;flex-shrink:0;}
+.shops-grid.list-view .card-date{display:block;margin-top:0;flex-shrink:0;}
 .shops-grid.list-view .btn-unfav,.shops-grid.list-view .btn-del-review{top:50%;transform:translateY(-50%);right:6px;}
 
 /* ソートバー */
@@ -136,12 +144,12 @@ nav a:hover{color:var(--gold);}
 .sort-btn.active{background:#6F4E37;border-color:#6F4E37;color:#fff;}
 
 /* 評価タブ固有 */
-.my-rating-row{display:flex;align-items:center;gap:6px;margin-bottom:.4rem;}
-.my-stars-display{color:#882D17;font-size:15px;letter-spacing:1px;}
-.my-rating-label{font-family:var(--mono);font-size:9px;color:var(--text-dim);}
-.card-memo{font-family:var(--serif);font-size:12px;color:var(--text-dim);line-height:1.5;border-top:1px solid var(--border);padding-top:.5rem;margin-top:.4rem;white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
-.card-date{font-family:var(--mono);font-size:9px;color:var(--text-dim);margin-top:.5rem;letter-spacing:.05em;}
-.btn-del-review{position:absolute;top:8px;right:8px;background:rgba(255,255,255,.9);border:1px solid rgba(120,120,120,.3);color:#999;font-size:12px;width:28px;height:28px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;backdrop-filter:blur(4px);}
+.my-rating-row{display:flex;align-items:center;gap:4px;margin-bottom:1px;}
+.my-stars-display{color:#FFB300;font-size:11px;letter-spacing:1px;text-shadow:0 1px 3px rgba(0,0,0,.4);}
+.my-rating-label{display:none;}
+.card-memo{display:none;}
+.card-date{display:none;}
+.btn-del-review{position:absolute;top:8px;right:8px;background:rgba(255,255,255,.9);border:1px solid rgba(120,120,120,.3);color:#999;font-size:12px;width:28px;height:28px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;backdrop-filter:blur(4px);z-index:3;}
 /* フレンドタブ */
 .friends-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;}
 .friend-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:1rem;display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;transition:all .2s;text-align:center;}
@@ -191,8 +199,8 @@ footer a:hover{color:var(--gold);}
   .page-wrap{padding:1.2rem .8rem;}
   .tab-btn{font-size:11px;padding:9px 14px;}
   .shops-grid{grid-template-columns:1fr 1fr;gap:8px;}
-  .card-body{padding:.7rem;}
-  .card-name{font-size:.88rem;}
+  .card-body{padding:.3rem .45rem;}
+  .card-name{font-size:.82rem;}
 }
 @media(max-width:380px){
   .shops-grid{grid-template-columns:1fr;}
