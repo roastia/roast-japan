@@ -388,7 +388,8 @@ async function renderMyPage(user, content) {
     renderWishPanel(wishShops, wishDates, user.uid);
 
   } catch(e) {
-    content.innerHTML = `<div class="loading" style="color:#c06040">読み込みに失敗しました。<br><span style="font-size:10px">${e.code || ''} ${e.message || String(e)}</span></div>`;
+    const emsg = _jaErr(e);
+    content.innerHTML = `<div class="loading" style="color:#c06040">読み込みに失敗しました。<br><span style="font-size:10px">${emsg}</span></div>`;
     console.error(e);
   }
 }
@@ -466,7 +467,8 @@ async function renderOtherPage(currentUser, targetUid, content) {
     window._followState = { isFollowing, targetUid, currentUser };
 
   } catch(e) {
-    content.innerHTML = `<div class="loading" style="color:#c06040">読み込みに失敗しました。<br><span style="font-size:10px">${e.code || ''} ${e.message || String(e)}</span></div>`;
+    const emsg = _jaErr(e);
+    content.innerHTML = `<div class="loading" style="color:#c06040">読み込みに失敗しました。<br><span style="font-size:10px">${emsg}</span></div>`;
     console.error(e);
   }
 }
@@ -904,6 +906,28 @@ function escHtml(str) {
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+function _jaErr(e) {
+  const map = {
+    'permission-denied': '権限がありません',
+    'unavailable': 'サーバーに接続できません。しばらくしてから再試行してください',
+    'not-found': 'データが見つかりません',
+    'already-exists': '既に存在します',
+    'resource-exhausted': 'リクエストが多すぎます。しばらくしてから再試行してください',
+    'unauthenticated': 'ログインが必要です',
+    'cancelled': '操作がキャンセルされました',
+    'deadline-exceeded': '通信がタイムアウトしました',
+    'auth/user-not-found': 'このメールアドレスは登録されていません',
+    'auth/wrong-password': 'パスワードが正しくありません',
+    'auth/email-already-in-use': 'このメールアドレスは既に使用されています',
+    'auth/invalid-email': 'メールアドレスの形式が正しくありません',
+    'auth/too-many-requests': 'しばらく待ってから再試行してください',
+    'auth/requires-recent-login': 'セッションが切れました。一度ログアウトして再ログインしてください',
+    'auth/network-request-failed': 'ネットワークエラーが発生しました',
+    'auth/operation-not-allowed': 'この操作は許可されていません',
+  };
+  return map[e.code] || '予期しないエラーが発生しました';
+}
+
 function startEditName() {
   const row = document.querySelector('.profile-name-row');
   const current = document.getElementById('profile-name-display').textContent;
@@ -936,7 +960,7 @@ async function saveDisplayName() {
     );
     cancelEditName(newName);
   } catch(e) {
-    alert('名前の変更に失敗しました: ' + (e.message || e));
+    alert('名前の変更に失敗しました。しばらくしてから再試行してください。');
   }
 }
 
@@ -991,7 +1015,7 @@ async function saveEmail() {
       'auth/requires-recent-login': 'セッションが切れました。一度ログアウトして再ログインしてください',
       'auth/too-many-requests': 'しばらく待ってから再試行してください',
       'auth/operation-not-allowed': 'このメールアドレスへの変更は許可されていません',
-    }[e.code] || (e.message || '変更に失敗しました');
+    }[e.code] || '変更に失敗しました。しばらくしてから再試行してください。';
     if(errEl) errEl.textContent = msg;
   }
 }
