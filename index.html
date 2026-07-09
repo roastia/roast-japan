@@ -767,14 +767,52 @@ let gpsLat = null, gpsLng = null;
 
 const WALK_SPEED = 80;    // 道路距離 80m/分（不動産標準）
 const DETOUR = 1.25;      // 直線→道路距離の補正係数（迂回率）
-// 直線距離をDETOURで補正して徒歩分数を計算（端数切り上げ＝不動産標準）
-function walkToMeters(min) { return min * WALK_SPEED / DETOUR; } // 60分→3840m直線
+function walkToMeters(min) { return min * WALK_SPEED / DETOUR; }
 function distanceMeters(lat1,lng1,lat2,lng2) {
   const R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLng=(lng2-lng1)*Math.PI/180;
   const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
   return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 function walkMinutesFromDist(m) { return Math.ceil(m * DETOUR / WALK_SPEED); }
+
+// ルート距離キャッシュ（shopId → メートル、OSRM取得値）
+const _routeDistCache = {};
+// 距離を表示用文字列に変換
+function fmtDist(m) {
+  if (m == null) return '';
+  return m >= 1000 ? (m/1000).toFixed(1)+'km' : (Math.round(m/10)*10)+'m';
+}
+// 利用可能な最善の距離（キャッシュ済みルート距離 or 推定道路距離）
+function bestDist(shop) {
+  if (!myLat || !shop.lat || !shop.lng) return null;
+  const straight = distanceMeters(myLat, myLng, shop.lat, shop.lng);
+  return _routeDistCache[shop.id] ?? straight * DETOUR;
+}
+// OSRM Table APIでルート距離を一括取得してDOMを更新
+async function _fetchRouteDistsOSRM(shops) {
+  if (!myLat || !shops.length) return;
+  const toFetch = shops.filter(s => s.lat && s.lng && _routeDistCache[s.id] == null);
+  if (!toFetch.length) return;
+  const BATCH = 60;
+  for (let i = 0; i < toFetch.length; i += BATCH) {
+    const batch = toFetch.slice(i, i + BATCH);
+    const coords = [myLng+','+myLat, ...batch.map(s => s.lng+','+s.lat)].join(';');
+    try {
+      const res = await fetch(`https://router.project-osrm.org/table/v1/foot/${coords}?sources=0&annotations=distance`);
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (data.code !== 'Ok') continue;
+      batch.forEach((s, idx) => {
+        const d = data.distances[0][idx + 1];
+        if (d != null) {
+          _routeDistCache[s.id] = d;
+          const el = document.querySelector(`.shop-card[data-shop-id="${s.id}"] .col-dist-val`);
+          if (el) el.textContent = fmtDist(d);
+        }
+      });
+    } catch(e) { /* 失敗時は推定距離のまま */ }
+  }
+}
 function _fmtPhone(p) {
   return p ? p.replace(/^\+81[-\s]?/, '0') : p;
 }
@@ -805,6 +843,7 @@ function resetBase() {
   document.getElementById('location-status').textContent = '';
   document.getElementById('location-status').className = 'location-status';
   walkMinutes = 0;
+  Object.keys(_routeDistCache).forEach(k => delete _routeDistCache[k]);
   filterShops();
 }
 
@@ -1029,7 +1068,6 @@ function updateMarkers(shops) {
 function _createMarker(shop) {
   if (_markerMap[shop.id]) return _markerMap[shop.id];
   const dist = myLat ? distanceMeters(myLat, myLng, shop.lat, shop.lng) : null;
-  const walkMin = dist ? walkMinutesFromDist(dist) : null;
   const isNear = dist && walkMinutes > 0 && dist <= walkToMeters(walkMinutes);
   const isFavOrRev = _mapFavIds.has(Number(shop.id)) || _mapRevIds.has(Number(shop.id)) || _mapWishIds.has(Number(shop.id));
   const icon = makeMarkerIcon(shop.id, false, isNear);
@@ -1040,7 +1078,8 @@ function _createMarker(shop) {
   marker._shopId = shop.id;
   marker._isNear = isNear;
   _markerMap[shop.id] = marker;
-  const walkBadge = walkMin ? `<span class="popup-badge popup-badge-walk">🚶 ${walkMin}分</span>` : '';
+  const popupDist = bestDist(shop);
+  const walkBadge = popupDist ? `<span class="popup-badge popup-badge-walk">📍 約${fmtDist(popupDist)}</span>` : '';
   const tagBadges = (shop.tags||[]).map(tagLabel).join('');
   // ホバー専用のシンプルなツールチップポップアップ
   marker.bindPopup(`
@@ -1174,11 +1213,12 @@ function renderCards() {
   grid.innerHTML = '';
   const hdr = document.createElement('div');
   hdr.className = 'shop-grid-header';
-  hdr.innerHTML = `<div class="col-num">#</div><div class="col-name">店舗名</div><div class="col-tags">種別</div><div class="col-walk">${myLat?'徒歩':''}</div>`;
+  hdr.innerHTML = `<div class="col-num">#</div><div class="col-name">店舗名</div><div class="col-tags">種別</div><div class="col-walk">${myLat?'距離':''}</div>`;
   grid.appendChild(hdr);
   filteredShops.slice(0, displayedCount).forEach((shop, idx) => {
     const dist = (myLat && shop.lat && shop.lng) ? distanceMeters(myLat,myLng,shop.lat,shop.lng) : null;
-    const walkMin = dist ? walkMinutesFromDist(dist) : null;
+    const routeDist = dist ? bestDist(shop) : null;
+    const distStr = routeDist ? fmtDist(routeDist) : '';
     const card = document.createElement('div');
     const isFav  = _mapFavIds.has(Number(shop.id));
     const isRev  = _mapRevIds.has(Number(shop.id));
@@ -1200,7 +1240,7 @@ function renderCards() {
         <div class="card-pref">${shop.pref}${shop.city?' · '+shop.city:''}</div>
         <div class="col-tags">${(shop.tags||[]).map(tagLabel).join('')}</div>
         <div class="col-walk">
-          ${walkMin ? `🚶${walkMin}分` : ''}
+          ${distStr ? `<span class="col-dist-val">${distStr}</span>` : ''}
           ${isRev && _mapRevDates[Number(shop.id)] ? `<span class="rev-date">${_fmtDateTime(_mapRevDates[Number(shop.id)])}</span>` : ''}
           ${_mapVisitCounts[Number(shop.id)] > 0 ? `<span class="rev-date" style="color:#1565C0">📍${_mapVisitCounts[Number(shop.id)]}回</span>` : ''}
         </div>
@@ -1213,6 +1253,8 @@ function renderCards() {
     ? filteredShops.length + (myLat ? ' 件（距離順）' : ' 件')
     : (myLat ? filteredShops.length+' (徒歩60分圏内)' : filteredShops.length);
   document.getElementById('load-more-btn').style.display = filteredShops.length>displayedCount?'inline-block':'none';
+  // OSRM非同期でルート距離を取得・更新
+  if (myLat) _fetchRouteDistsOSRM(filteredShops.slice(0, displayedCount));
 }
 
 function setNameFilter(val) {
@@ -1340,13 +1382,13 @@ function _openModalWith(shop) {
   }
 
   const dist = (myLat&&shop.lat&&shop.lng) ? distanceMeters(myLat,myLng,shop.lat,shop.lng) : null;
-  const walkMin = dist ? walkMinutesFromDist(dist) : null;
+  const modalDist = dist ? bestDist(shop) : null;
   const galleryHtml = (shop.photos&&shop.photos.length)
     ? `<div class="modal-gallery">${shop.photos.map(p=>`<img src="${p}" alt="${shop.name}" loading="lazy" onerror="this.style.display='none'">`).join('')}</div>` : '';
   const stars = '★'.repeat(Math.round(shop.rating||0))+'☆'.repeat(5-Math.round(shop.rating||0));
   const ratingHtml = shop.rating
     ? `<div class="modal-rating"><span class="modal-stars">${stars}</span><span class="modal-rating-num">${shop.rating}${shop.reviews?' · '+shop.reviews.toLocaleString()+'件のレビュー':''}</span></div>` : '';
-  const walkHtml = walkMin ? `<div class="modal-walk">🚶 現在地から徒歩約${walkMin}分（直線距離 ${Math.round(dist)}m）</div>` : '';
+  const walkHtml = modalDist ? `<div class="modal-walk">📍 現在地から約${fmtDist(modalDist)}</div>` : '';
   const today = ['日','月','火','水','木','金','土'][new Date().getDay()];
   let hoursHtml = '';
   if (shop.hours && Object.keys(shop.hours).length) {
